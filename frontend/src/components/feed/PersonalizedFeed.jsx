@@ -4,6 +4,7 @@ import { feedService } from '../../services/api/feedService';
 import InlineCrossSellBanner from '../crosssell/InlineCrossSellBanner';
 import axios from 'axios';
 import { tracker } from '../../services/behaviorTracker';
+import { getToken } from '../../utils/storage';
 
 const fallbackFeed = [
   {
@@ -50,8 +51,8 @@ const PersonalizedFeed = ({ userId }) => {
     // Fetch feed and dynamic recommendations concurrently
     Promise.all([
       feedService.getPersonalizedFeed(userId, 'morning'),
-      axios.get('http://localhost:8000/api/v1/recommendations/for-me', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      axios.get('http://127.0.0.1:8000/api/v1/recommendations/for-me', {
+        headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {}
       }).catch(() => ({ data: { recommendations: [] } }))
     ])
     .then(([feedData, recsData]) => {
@@ -126,4 +127,3 @@ const PersonalizedFeed = ({ userId }) => {
 };
 
 export default PersonalizedFeed;
-

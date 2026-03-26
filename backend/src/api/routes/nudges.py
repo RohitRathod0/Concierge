@@ -43,13 +43,29 @@ def get_pending_nudges(user_id: UUID, db: Session = Depends(get_db)):
         NudgeEvent.user_id == user_id,
         NudgeEvent.shown_at == None,
         NudgeEvent.channel.in_(["TOAST", "BOTTOM_SHEET"])
-    ).order_by(NudgeEvent.created_at.desc()).first()
-    
-    return {"nudges": [nudge] if nudge else []}
+    ).order_by(NudgeEvent.shown_at.desc()).first()
+
+    if not nudge:
+        return {"nudges": []}
+
+    return {
+        "nudges": [
+            {
+                "id": str(nudge.nudge_id),
+                "nudge_id": str(nudge.nudge_id),
+                "trigger_type": nudge.trigger_type,
+                "nudge_copy": nudge.nudge_copy,
+                "channel": nudge.channel,
+                "clicked": nudge.clicked,
+                "converted": nudge.converted,
+                "shown_at": nudge.shown_at.isoformat() if nudge.shown_at else None,
+            }
+        ]
+    }
 
 @router.post("/{nudge_id}/impression")
 def track_impression(nudge_id: UUID, db: Session = Depends(get_db)):
-    nudge = db.query(NudgeEvent).filter(NudgeEvent.id == nudge_id).first()
+    nudge = db.query(NudgeEvent).filter(NudgeEvent.nudge_id == nudge_id).first()
     if nudge:
         nudge.shown_at = datetime.utcnow()
         db.commit()
@@ -57,18 +73,17 @@ def track_impression(nudge_id: UUID, db: Session = Depends(get_db)):
 
 @router.post("/{nudge_id}/dismiss")
 def track_dismiss(nudge_id: UUID, db: Session = Depends(get_db)):
-    nudge = db.query(NudgeEvent).filter(NudgeEvent.id == nudge_id).first()
+    nudge = db.query(NudgeEvent).filter(NudgeEvent.nudge_id == nudge_id).first()
     if nudge:
-        nudge.dismissed_at = datetime.utcnow()
+        nudge.clicked = False
         db.commit()
     return {"status": "ok"}
 
 @router.post("/{nudge_id}/convert")
 def track_convert(nudge_id: UUID, db: Session = Depends(get_db)):
-    nudge = db.query(NudgeEvent).filter(NudgeEvent.id == nudge_id).first()
+    nudge = db.query(NudgeEvent).filter(NudgeEvent.nudge_id == nudge_id).first()
     if nudge:
         nudge.converted = True
-        nudge.dismissed_at = datetime.utcnow()
+        nudge.clicked = True
         db.commit()
     return {"status": "ok"}
-

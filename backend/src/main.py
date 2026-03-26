@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import ObjectNotExecutableError, OperationalError
 
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
@@ -32,6 +32,14 @@ from src.api.routes.social_proof import router as social_proof_router
 from src.api.routes.feed import router as feed_router
 from src.api.routes.notifications import router as notifications_router
 from src.api.routes.vernacular import router as vernacular_router
+
+# ET Market Features
+try:
+    from src.api.routes.ipo import router as ipo_router
+    from src.api.routes.courses import router as courses_router
+    from src.api.routes.markets import router as markets_router
+except ImportError:
+    pass
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -82,6 +90,14 @@ app.include_router(feed_router)
 app.include_router(notifications_router)
 app.include_router(vernacular_router)
 
+# ET Market Features
+try:
+    app.include_router(ipo_router, prefix='/api/v1', tags=['ipo'])
+    app.include_router(courses_router, prefix='/api/v1', tags=['courses'])
+    app.include_router(markets_router, prefix='/api/v1', tags=['markets'])
+except NameError:
+    pass
+
 @app.get("/health")
 def health_check():
     return {
@@ -110,3 +126,12 @@ async def startup_event():
     logger.info(f"Agent Orchestration: {os.getenv('USE_AGENT_ORCHESTRATION', 'false')}")
     logger.info(f"RAG Navigation: {os.getenv('USE_RAG_NAVIGATION', 'false')}")
     logger.info(f"Journey System: {os.getenv('ENABLE_JOURNEY_SYSTEM', 'true')}")
+
+    try:
+        from src.jobs.refresh_market_data import start_scheduler
+
+        start_scheduler()
+    except ModuleNotFoundError as e:
+        logger.warning("Skipping market data scheduler startup because a dependency is missing: %s", e)
+    except Exception as e:
+        logger.error(f"Failed to start market data scheduler: {e}")

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getToken } from '../../utils/storage';
+import { clearAuthStorage, getToken } from '../../utils/storage';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000',
@@ -17,6 +17,16 @@ apiClient.interceptors.request.use(
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      clearAuthStorage();
+    }
+    return Promise.reject(error);
+  }
 );
 
 export default apiClient;

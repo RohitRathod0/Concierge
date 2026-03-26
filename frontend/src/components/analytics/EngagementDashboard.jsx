@@ -3,7 +3,7 @@ import { MetricCard } from './MetricCard';
 import { Users, MessageSquare, Clock, Activity } from 'lucide-react';
 import { getToken } from '../../utils/storage';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
 export function EngagementDashboard() {
   const [data, setData] = useState(null);

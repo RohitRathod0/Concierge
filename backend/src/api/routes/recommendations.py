@@ -6,7 +6,7 @@ from src.services import recommendation_service
 from src.api.routes.chat import get_current_user
 from src.database.models import User, UserProfile, ETProductReadiness
 
-router = APIRouter(prefix="/recommendations", tags=["recommendations"])
+router = APIRouter(prefix="/api/v1/recommendations", tags=["recommendations"])
 
 @router.get("", response_model=list[RecommendationResponse])
 def get_user_recommendations(limit: int = 3, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):

@@ -1,153 +1,193 @@
-import React, { useState } from 'react';
-import { Star, Clock, Users, PlayCircle, BookOpen, Filter } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import useAuthStore from '../store/authStore';
+import { courseService } from '../services/api/courseService';
+import CourseCard from '../components/courses/CourseCard';
+import PageSkeleton from '../components/common/PageSkeleton';
 
-export default function MasterclassPage() {
-  const [activeTab, setActiveTab] = useState('All');
-  const tabs = ['All', 'Stock Market', 'Tax Planning', 'Retirement', 'Crypto', 'Real Estate'];
+const MasterclassPage = () => {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  
+  const [courses, setCourses] = useState([]);
+  const [recommended, setRecommended] = useState([]);
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [sortBy, setSortBy] = useState('popular');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const courses = [
-    { title: "Stock Market Basics for Beginners", instructor: "Rachana Ranade", rating: 4.8, students: 24500, hours: 12, price: 1999, img: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&w=400&q=80" },
-    { title: "Advanced Options Trading", instructor: "PR Sundar", rating: 4.9, students: 8200, hours: 18, price: 8999, img: "https://images.unsplash.com/photo-1611974789855-9c2a0a2236a0?auto=format&fit=crop&w=400&q=80" },
-    { title: "Tax Planning for Salaried Professionals", instructor: "CA Monika", rating: 4.7, students: 15400, hours: 5, price: 1499, img: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=400&q=80" },
-    { title: "Complete Real Estate Investing", instructor: "Rohan D'Souza", rating: 4.6, students: 6300, hours: 22, price: 4999, img: "https://images.unsplash.com/photo-1560518846-1ea114660e5a?auto=format&fit=crop&w=400&q=80" },
-    { title: "Technical Analysis Masterclass", instructor: "Nitin B.", rating: 4.8, students: 11200, hours: 15, price: 3999, img: "https://images.unsplash.com/photo-1611974789855-9c2a0a2236a0?auto=format&fit=crop&w=400&q=80" },
-    { title: "Retirement Corpus Building", instructor: "Wealth Managers", rating: 4.9, students: 5100, hours: 8, price: 2499, img: "https://images.unsplash.com/photo-1633519398850-89111867c406?auto=format&fit=crop&w=400&q=80" }
+  const categories = [
+    { id: 'all', label: 'All Courses' },
+    { id: 'equities', label: 'Equities' },
+    { id: 'trading', label: 'Trading' },
+    { id: 'mutual_funds', label: 'Mutual Funds' },
+    { id: 'derivatives', label: 'Derivatives' },
+    { id: 'personal_finance', label: 'Personal Finance' },
+    { id: 'ipo', label: 'IPO Strategy' }
   ];
 
-  return (
-    <div className="w-full bg-slate-50 min-h-screen">
-      {/* Hero */}
-      <section className="bg-gray-900 text-white pt-20 pb-24 relative overflow-hidden">
-        <div className="absolute inset-0 z-0">
-           <img src="https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=1600&q=80" className="w-full h-full object-cover opacity-20" alt="Audience" />
-           <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/90 to-transparent"></div>
-        </div>
-        <div className="max-w-7xl mx-auto px-4 relative z-10 flex flex-col md:flex-row items-center">
-           <div className="md:w-3/5">
-              <span className="inline-block px-3 py-1 bg-blue-500/20 text-blue-300 font-bold text-xs uppercase tracking-widest rounded mb-6 border border-blue-500/30">ET Masterclass</span>
-              <h1 className="text-4xl md:text-6xl font-extrabold mb-6 leading-tight">Learn From India's <br/> Top Financial Minds</h1>
-              <p className="text-gray-300 text-lg md:text-xl max-w-xl mb-8">Curated courses taught by practitioners, not professors. Master the markets, optimize your taxes, and grow your wealth alongside experts.</p>
-              
-              <div className="flex gap-4 items-center bg-gray-800/80 p-4 rounded-xl border border-gray-700 w-max backdrop-blur-md">
-                 <div className="flex -space-x-3">
-                    <div className="w-10 h-10 rounded-full border-2 border-gray-800 bg-red-500 z-30"></div>
-                    <div className="w-10 h-10 rounded-full border-2 border-gray-800 bg-green-500 z-20"></div>
-                    <div className="w-10 h-10 rounded-full border-2 border-gray-800 bg-blue-500 z-10"></div>
-                 </div>
-                 <div className="text-sm font-medium text-gray-300">
-                    <span className="text-white font-bold block leading-none">50,000+</span>
-                    Active Learners
-                 </div>
-              </div>
-           </div>
-        </div>
-      </section>
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [recRes, coursesRes] = await Promise.all([
+          courseService.getRecommended(),
+          courseService.getCourses({ category: activeCategory, sort: sortBy })
+        ]);
+        setRecommended(recRes.courses || []);
+        setCourses(coursesRes.courses || []);
+        setError(null);
+      } catch (err) {
+        setError('Failed to load courses. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchData();
+  }, [activeCategory, sortBy]);
 
-      {/* Course Comparison AI Banner */}
-      <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-20">
-         <div className="bg-gradient-to-r from-orange-500 to-[#f26522] rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center justify-between text-white border border-orange-400">
-            <div className="flex items-center gap-4 mb-4 md:mb-0">
-               <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                 <Star className="w-6 h-6 text-white" />
-               </div>
-               <div>
-                  <h3 className="font-bold text-lg">Not sure which to pick?</h3>
-                  <p className="text-orange-100 text-sm">Let our AI recommend the perfect course based on your profile.</p>
-               </div>
-            </div>
-            <Link to="/onboarding" className="bg-white text-orange-600 font-bold px-6 py-3 rounded-xl hover:bg-gray-50 transition-colors shadow-sm whitespace-nowrap">
-               Get Recommendations
-            </Link>
-         </div>
+  const freeCourses = courses.filter(c => c.is_free);
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
+      <nav className="mb-6">
+        <button onClick={() => navigate('/services')} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          Services / ET Masterclasses
+        </button>
+      </nav>
+
+      {/* Hero */}
+      <div className="mb-10 bg-gray-900 rounded-2xl p-8 md:p-12 text-white relative overflow-hidden shadow-xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500 opacity-20 rounded-full blur-3xl -mr-10 -mt-10"></div>
+        <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-600 opacity-20 rounded-full blur-3xl -ml-20 -mb-20"></div>
+        
+        <div className="relative z-10 max-w-2xl">
+          <span className="inline-block bg-orange-500/20 text-orange-400 text-xs font-bold px-3 py-1 rounded-full mb-4 border border-orange-500/30">PREMIUM LEARNING</span>
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-4">ET Masterclasses</h1>
+          <p className="text-lg md:text-xl text-gray-300 font-medium">Expert-led · AI personalized · Learn at your pace</p>
+          <div className="mt-8 flex gap-4">
+            <button onClick={() => {
+              document.getElementById('explore-section').scrollIntoView({ behavior: 'smooth' });
+            }} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow">
+              Explore Courses
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Featured Banner */}
-      <section className="pt-24 pb-12 max-w-7xl mx-auto px-4">
-         <div className="bg-white rounded-3xl overflow-hidden shadow-md border border-gray-100 flex flex-col md:flex-row mb-12 group">
-            <div className="md:w-1/2 relative overflow-hidden">
-               <img src="https://images.unsplash.com/photo-1611974789855-9c2a0a2236a0?auto=format&fit=crop&w=800&q=80" alt="Featured" className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" />
-               <div className="absolute top-4 left-4 bg-red-500 text-white text-xs uppercase font-bold px-3 py-1 rounded">Next Batch: Starts Tomorrow</div>
-            </div>
-            <div className="md:w-1/2 p-10 flex flex-col justify-center">
-               <div className="flex items-center gap-2 text-sm text-gray-500 mb-3 font-semibold uppercase tracking-wider">
-                  <span className="text-orange-600">Featured</span> • Option Trading Masterclass
-               </div>
-               <h2 className="text-3xl font-extrabold text-gray-900 mb-4 leading-tight">Master Option Trading in 4 Weeks</h2>
-               <p className="text-gray-600 mb-6 text-lg">Go from beginner to profitable trader with our flagship options trading program taught by 15-year veteran traders.</p>
-               
-               <div className="flex items-center gap-6 mb-8 text-sm font-semibold text-gray-700 border-b border-gray-100 pb-8">
-                  <div className="flex items-center"><Clock className="w-4 h-4 mr-2 text-gray-400"/> 24 Hours</div>
-                  <div className="flex items-center"><Users className="w-4 h-4 mr-2 text-gray-400"/> 12,000+ Enrolled</div>
-                  <div className="flex items-center text-yellow-600"><Star className="w-4 h-4 mr-1 fill-current"/> 4.9 Stars</div>
-               </div>
-               
-               <div className="flex flex-col sm:flex-row gap-4">
-                  <button className="flex-1 bg-gray-900 hover:bg-black text-white font-bold py-4 rounded-xl transition-colors">Enrol Now — ₹4,999</button>
-                  <button className="flex-1 bg-orange-50 hover:bg-orange-100 text-orange-700 font-bold py-4 rounded-xl border border-orange-200 transition-colors flex justify-center items-center">
-                    <PlayCircle className="w-5 h-5 mr-2" /> Free Preview
-                  </button>
-               </div>
-            </div>
-         </div>
-
-         {/* Filter Bar */}
-         <div className="flex items-center gap-4 overflow-x-auto pb-6 scrollbar-hide">
-            <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 mr-2 flex-shrink-0">
-               <Filter className="w-5 h-5 text-gray-400" />
-            </div>
-            {tabs.map(tab => (
-               <button 
-                 key={tab}
-                 onClick={() => setActiveTab(tab)}
-                 className={`px-5 py-2.5 rounded-xl font-semibold text-sm whitespace-nowrap transition-colors ${
-                    activeTab === tab 
-                      ? 'bg-gray-900 text-white shadow-md' 
-                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                 }`}
-               >
-                 {tab}
-               </button>
+      {/* Recommended Section - Only show if profile has personalization data */}
+      {!loading && recommended.length > 0 && user && (
+        <div className="mb-12">
+          <div className="flex items-center gap-2 mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Recommended For You</h2>
+            <span className="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-200 uppercase">AI Pick</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {recommended.map(course => (
+              <CourseCard key={`rec-${course.id}`} course={course} isRecommended={true} />
             ))}
-         </div>
+          </div>
+        </div>
+      )}
 
-         {/* Course Grid */}
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 pb-24">
-            {courses.map((course, i) => (
-               <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col">
-                  <div className="h-48 relative overflow-hidden group">
-                     <img src={course.img} alt={course.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
-                     <button className="absolute inset-0 m-auto w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-orange-600 z-10 hover:scale-110 transform duration-300 shadow-xl">
-                        <PlayCircle className="w-6 h-6" />
-                     </button>
-                  </div>
-                  <div className="p-6 flex-1 flex flex-col">
-                     <div className="flex justify-between items-start mb-2">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">{course.instructor}</span>
-                        <div className="flex items-center text-xs font-bold text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded">
-                           <Star className="w-3 h-3 mr-1 fill-current"/> {course.rating}
-                        </div>
-                     </div>
-                     <h3 className="font-extrabold text-lg text-gray-900 mb-4 leading-snug flex-1 cursor-pointer hover:text-orange-600 transition-colors">{course.title}</h3>
-                     
-                     <div className="flex items-center gap-4 text-xs font-semibold text-gray-500 mb-6 border-b border-gray-100 pb-4">
-                        <span className="flex items-center"><Clock className="w-3.5 h-3.5 mr-1.5 text-gray-400"/> {course.hours} Hours</span>
-                        <span className="flex items-center"><Users className="w-3.5 h-3.5 mr-1.5 text-gray-400"/> {(course.students/1000).toFixed(1)}k Students</span>
-                     </div>
-                     
-                     <div className="flex items-center justify-between mt-auto">
-                        <span className="text-xl font-extrabold text-gray-900">₹{course.price}</span>
-                        <button className="text-sm font-bold text-orange-600 hover:text-orange-700 bg-orange-50 hover:bg-orange-100 px-4 py-2 rounded-lg transition-colors border border-orange-100">
-                           Preview
-                        </button>
-                     </div>
-                  </div>
-               </div>
+      {/* Main Explore Section */}
+      <div id="explore-section" className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-200 pb-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Explore Catalog</h2>
+          {/* Category Tabs */}
+          <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide w-full max-w-[80vw] md:max-w-xl lg:max-w-3xl">
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id)}
+                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  activeCategory === cat.id
+                    ? 'bg-gray-900 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {cat.label}
+              </button>
             ))}
-         </div>
-      </section>
+          </div>
+        </div>
+        
+        {/* Sort Dropdown */}
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-sm font-medium text-gray-500">Sort by:</span>
+          <select 
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="text-sm border-gray-300 rounded-md shadow-sm focus:ring-orange-500 focus:border-orange-500 bg-white py-2 pl-3 pr-8 font-medium cursor-pointer"
+          >
+            <option value="popular">Most Popular</option>
+            <option value="rating">Highest Rated</option>
+            <option value="newest">Newest First</option>
+          </select>
+        </div>
+      </div>
 
+      {/* Main Grid */}
+      {error && (
+        <div className="bg-red-50 p-4 border border-red-200 rounded-lg text-red-700 flex flex-col items-center my-8">
+          <p className="mb-3">{error}</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1,2,3,4,5,6].map(i => (
+             <div key={i} className="bg-white border text-center border-gray-100 rounded-xl p-5 h-80 animate-pulse flex flex-col">
+                <div className="h-32 bg-gray-200 rounded-lg mb-4 w-full"></div>
+                <div className="h-6 bg-gray-100 rounded w-1/2 mb-4 mx-auto"></div>
+                <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-4 mx-auto"></div>
+                <div className="h-10 bg-gray-200 rounded w-full mt-auto"></div>
+             </div>
+          ))}
+        </div>
+      ) : courses.length === 0 && !error ? (
+        <div className="text-center py-16 bg-gray-50 rounded-xl border border-gray-100">
+          <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          <h3 className="text-lg font-medium text-gray-900 mb-1">No courses found</h3>
+          <p className="text-gray-500">Try selecting a different category or adjusting your filters.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {courses.map(course => (
+            <CourseCard key={course.id} course={course} />
+          ))}
+        </div>
+      )}
+
+      {/* Free Courses Banner */}
+      {!loading && freeCourses.length > 0 && activeCategory === 'all' && (
+        <div className="mt-16 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100 rounded-xl p-8 text-center md:text-left flex flex-col md:flex-row items-center justify-between shadow-sm">
+          <div className="mb-6 md:mb-0 md:pr-8">
+            <span className="inline-block bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-1 rounded mb-3 uppercase border border-emerald-200">Zero Cost</span>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Start Learning for Free</h3>
+            <p className="text-gray-600 text-lg">Kickstart your financial education journey without spending a rupee. Full access, no credit card required.</p>
+          </div>
+          <div className="shrink-0 flex gap-4">
+             {freeCourses.slice(0, 1).map(c => (
+                <button 
+                  key={c.id}
+                  onClick={() => navigate(`/masterclass/${c.id}`)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-lg transition-colors shadow-md whitespace-nowrap"
+                >
+                  Enroll in {c.title.split(' ')[0]} Now
+                </button>
+             ))}
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default MasterclassPage;

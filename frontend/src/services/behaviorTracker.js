@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getToken } from '../utils/storage';
 
 class BehaviorTracker {
   constructor() {
@@ -9,7 +10,7 @@ class BehaviorTracker {
   }
 
   getAuthToken() {
-    return localStorage.getItem('token');
+    return getToken();
   }
 
   logSignal(signalType, signalValue, pageContext) {
@@ -60,7 +61,7 @@ class BehaviorTracker {
     try {
       // Send the batch sequentially to the single signal endpoint to ensure they don't block
       for (const signal of batch) {
-        await axios.post('http://localhost:8000/api/v1/profile/signal', signal, {
+        await axios.post('http://127.0.0.1:8000/api/v1/profile/signal', signal, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }

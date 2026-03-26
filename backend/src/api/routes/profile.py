@@ -10,7 +10,7 @@ from src.services.product_readiness_service import calculate_readiness_scores
 from pydantic import BaseModel
 from typing import Dict, Any
 
-router = APIRouter(prefix="/profile", tags=["profile"])
+router = APIRouter(prefix="/api/v1/profile", tags=["profile"])
 
 class ProfileWrapper(BaseModel):
     profile: ProfileResponse

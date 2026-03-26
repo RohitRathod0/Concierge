@@ -3,7 +3,7 @@ import { MetricCard } from './MetricCard';
 import { Map, Flag, Percent, TrendingUp } from 'lucide-react';
 import { getToken } from '../../utils/storage';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 const STAGE_COLORS = {
   discovery: 'bg-emerald-100 text-emerald-700',
   exploration: 'bg-blue-100 text-blue-700',

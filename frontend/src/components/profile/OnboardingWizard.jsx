@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getToken } from '../../utils/storage';
 import { Target, TrendingUp, Briefcase, Zap, ArrowRight, CheckCircle2, Shield, Rocket, Building, Activity, BookOpen, DollarSign, Clock, HeartPulse } from 'lucide-react';
 
 const STEPS = [
@@ -122,16 +123,17 @@ export function OnboardingWizard() {
   useEffect(() => {
     const initOnboarding = async () => {
       try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         if (!token) {
-           console.warn("No token for onboarding sync.");
            return;
         }
-        await axios.post('http://localhost:8000/api/v1/profile/onboarding/start', {}, {
+        await axios.post('http://127.0.0.1:8000/api/v1/profile/onboarding/start', {}, {
           headers: { Authorization: `Bearer ${token}` }
         });
       } catch (err) {
-        console.error("Failed to start/sync onboarding:", err);
+        if (err?.response?.status !== 401) {
+          console.error("Failed to start/sync onboarding:", err);
+        }
       }
     };
     initOnboarding();
@@ -163,18 +165,22 @@ export function OnboardingWizard() {
   const handleNext = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       const answer = formData[stepDef.field];
       
       // Submit step securely if token exists
       if (token) {
-        await axios.post('http://localhost:8000/api/v1/profile/onboarding/step', {
+        await axios.post('http://127.0.0.1:8000/api/v1/profile/onboarding/step', {
           step: currentStep + 1,
           field: stepDef.field,
           answer: answer
         }, {
           headers: { Authorization: `Bearer ${token}` }
-        }).catch(err => console.warn("Network error backing up step, moving forward locally."));
+        }).catch(err => {
+          if (err?.response?.status !== 401) {
+            console.warn("Network error backing up step, moving forward locally.");
+          }
+        });
       }
 
       if (currentStep < STEPS.length - 1) {
@@ -183,7 +189,7 @@ export function OnboardingWizard() {
       } else {
         // Complete
         if (token) {
-           const res = await axios.post('http://localhost:8000/api/v1/profile/onboarding/complete', {}, {
+           const res = await axios.post('http://127.0.0.1:8000/api/v1/profile/onboarding/complete', {}, {
              headers: { Authorization: `Bearer ${token}` }
            }).catch(err => ({ data: { persona: 'DYNAMIC_INVESTOR' } }));
            setAssignedPersona(res?.data?.persona || "Dynamic Investor");
@@ -299,5 +305,3 @@ export function OnboardingWizard() {
     </div>
   );
 }
-
-

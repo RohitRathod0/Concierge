@@ -1,173 +1,152 @@
-import React, { useState } from 'react';
-import { Calendar, Bell, AlertCircle, Award, Shield, ChevronRight, Star } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import useAuthStore from '../store/authStore';
+import { ipoService } from '../services/api/ipoService';
+import IPOCard from '../components/ipo/IPOCard';
+import PageSkeleton from '../components/common/PageSkeleton';
 
-export default function IPOPage() {
-  const [activeTab, setActiveTab] = useState('Open IPOs');
-  const tabs = ['Open IPOs', 'Upcoming', 'Recently Listed', 'GMP Tracker'];
+const IPOPage = () => {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const [ipos, setIpos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('all');
+  const [statusCounts, setStatusCounts] = useState({ open: 0, upcoming: 0, closed: 0, listed: 0 });
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchIPOs(activeTab);
+  }, [activeTab]);
+
+  async function fetchIPOs(status) {
+    setLoading(true);
+    try {
+      const data = await ipoService.getIPOList({ status: status === 'all' ? undefined : status });
+      setIpos(data.ipos || []);
+      setStatusCounts(data.status_counts || { open: 0, upcoming: 0, closed: 0, listed: 0 });
+      setError(null);
+    } catch (e) {
+      setError('Failed to load IPOs. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const tabs = [
+    { id: 'all', label: `All (${(statusCounts.open || 0) + (statusCounts.upcoming || 0) + (statusCounts.closed || 0) + (statusCounts.listed || 0)})` },
+    { id: 'open', label: `Open (${statusCounts.open || 0}) 🔴` },
+    { id: 'upcoming', label: `Upcoming (${statusCounts.upcoming || 0})` },
+    { id: 'listed', label: `Recently Listed (${statusCounts.listed || 0})` }
+  ];
+
+  const hasDematAccount = user?.has_demat_account === true;
+  const openIpos = ipos.filter(i => i.status === 'open');
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Tracker Header */}
-      <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white pt-8 pb-32 px-4 shadow-inner relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 blur-sm pointer-events-none"></div>
-        <div className="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center">
-          <div>
-            <h1 className="text-3xl font-extrabold mb-2 tracking-tight">IPO Center & GMP Tracker</h1>
-            <p className="text-blue-100 font-medium">Never miss a listing gain. Get AI-powered ratings before you apply.</p>
-          </div>
-          <button className="mt-4 md:mt-0 flex items-center bg-white/10 hover:bg-white/20 border border-white/30 backdrop-blur-md px-4 py-2 rounded-lg text-sm font-bold transition-colors">
-            <Bell className="w-4 h-4 mr-2" /> Get WhatsApp Alerts
-          </button>
-        </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
+      <nav className="mb-4">
+        <button onClick={() => navigate('/services')} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          Services / IPO Hub
+        </button>
+      </nav>
+
+      {/* Hero */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">IPO Hub</h1>
+        <p className="mt-2 text-lg text-gray-600">Track, evaluate and invest in upcoming IPOs with AI guidance</p>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 -mt-20 relative z-20 w-full flex-1 mb-24">
-        
-        {/* Demat Prompt */}
-        <div className="bg-white rounded-2xl p-5 shadow-lg border-l-4 border-orange-500 mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mr-4 flex-shrink-0">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900">You need a Demat to apply</h3>
-              <p className="text-sm text-gray-500">Open one for free in 10 minutes with our certified partners.</p>
-            </div>
+      {/* Open IPO Banner */}
+      {openIpos.length > 0 && activeTab === 'all' && (
+        <div className="mb-8 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-center justify-between">
+          <div>
+            <span className="inline-block bg-white text-red-600 text-xs font-bold px-2 py-1 rounded mb-2 uppercase tracking-widest">LIVE NOW</span>
+            <h2 className="text-xl font-bold mb-1">IPO OPEN: {openIpos[0].company_name}</h2>
+            <p className="text-white/90">GMP: +₹{openIpos[0].gmp_premium} • Min Invest: ₹{openIpos[0].min_investment}</p>
           </div>
-          <button className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-xl transition-colors whitespace-nowrap shadow-sm">
-            Open Demat — Free
+          <button 
+            onClick={() => navigate(`/ipo/${openIpos[0].id}`)}
+            className="mt-4 md:mt-0 bg-white text-orange-600 px-6 py-2 rounded-lg font-bold hover:bg-orange-50 transition-colors shadow-sm"
+          >
+            View Details
           </button>
         </div>
+      )}
 
-        {/* Tabs */}
-        <div className="flex space-x-2 bg-white p-2 rounded-xl shadow-sm border border-gray-100 mb-8 overflow-x-auto">
-          {tabs.map(tab => (
-            <button 
-              key={tab} 
-              onClick={() => setActiveTab(tab)}
-              className={`px-6 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === tab ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100' : 'text-gray-500 hover:bg-gray-50'}`}
-            >
-              {tab}
-            </button>
+      {/* Tabs */}
+      <div className="border-b border-gray-200 mb-6 flex space-x-6 overflow-x-auto pb-1">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === tab.id
+                ? 'border-orange-500 text-orange-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Main Content */}
+      {error && (
+        <div className="bg-red-50 p-4 border border-red-200 rounded-lg text-red-700 flex flex-col items-center">
+          <p className="mb-3">{error}</p>
+          <button onClick={() => fetchIPOs(activeTab)} className="px-4 py-2 bg-white text-red-600 border border-red-200 rounded font-medium hover:bg-red-100">Try Again</button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1,2,3,4,5,6].map(i => (
+             <div key={i} className="bg-white border border-gray-100 rounded-xl p-5 h-80 animate-pulse flex flex-col">
+                <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
+                <div className="h-20 bg-gray-100 rounded mb-4"></div>
+                <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                <div className="h-10 bg-gray-200 rounded w-full mt-auto"></div>
+             </div>
           ))}
         </div>
-
-        {/* IPO Content */}
-        <div className="space-y-6">
-          {/* Swiggy Card */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow">
-            <div className="border-b border-gray-100 p-6 flex flex-col md:flex-row justify-between gap-6">
-              
-              <div className="flex gap-5">
-                <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center font-bold text-white text-2xl shadow-inner">S</div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-2xl font-extrabold text-gray-900">Swiggy Ltd.</h2>
-                    <span className="bg-green-100 text-green-700 text-[10px] uppercase font-bold px-2 py-0.5 rounded">Open today</span>
-                  </div>
-                  <p className="text-sm text-gray-500 font-medium mb-3">Food Tech & Quick Commerce</p>
-                  
-                  <div className="flex flex-wrap gap-4 text-sm bg-slate-50 p-3 rounded-lg border border-gray-100">
-                    <div><span className="text-gray-400 block text-xs">Issue Size</span><strong className="text-gray-800">₹10,414 Cr</strong></div>
-                    <div><span className="text-gray-400 block text-xs">Price Band</span><strong className="text-gray-800">₹371 - ₹390</strong></div>
-                    <div><span className="text-gray-400 block text-xs">Closes On</span><strong className="text-gray-800">08 Nov, 2024</strong></div>
-                    <div><span className="text-gray-400 block text-xs">Min Investment</span><strong className="text-gray-800">₹14,820</strong></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-start md:items-end justify-between bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 min-w-[200px]">
-                <div className="w-full">
-                  <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest block mb-1">Live GMP</span>
-                  <div className="text-3xl font-black text-indigo-700">₹18 <span className="text-base text-gray-500 font-medium line-through">₹25</span></div>
-                  <p className="text-xs text-green-600 font-bold mt-1">+4.6% Expected Gain</p>
-                </div>
-                <button className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg transition-colors shadow-sm text-sm">
-                  Apply Now
-                </button>
-              </div>
-
-            </div>
-
-            {/* AI Verdict */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 px-6 border-t border-indigo-100/50 flex gap-4 items-start">
-              <div className="bg-white p-2 rounded-full shadow-sm">
-                <Award className="w-6 h-6 text-indigo-600" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h4 className="font-bold text-indigo-900 text-sm">ET AI Verdict</h4>
-                  <div className="flex">
-                    {[1,2,3,4].map(i => <Star key={i} className="w-3.5 h-3.5 text-yellow-500 fill-current" />)}
-                    <Star className="w-3.5 h-3.5 text-gray-300 fill-current" />
-                  </div>
-                  <span className="text-xs font-bold text-indigo-600 uppercase">Apply for listing gain</span>
-                </div>
-                <p className="text-sm text-indigo-800/80 leading-relaxed font-medium">
-                  Strong brand value and market share in quick commerce, but profitability remains a concern. The grey market premium is shrinking. Good for aggressive investors looking for a quick 5-10% pop, but hold with caution for long term.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* ACME Corp (Upcoming) */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg transition-shadow opacity-75">
-            <div className="p-6 flex flex-col md:flex-row justify-between gap-6">
-              
-              <div className="flex gap-5">
-                <div className="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center font-bold text-white text-2xl shadow-inner">A</div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-2xl font-extrabold text-gray-900">ACME Solar Holdings</h2>
-                    <span className="bg-yellow-100 text-yellow-700 text-[10px] uppercase font-bold px-2 py-0.5 rounded">Upcoming</span>
-                  </div>
-                  <p className="text-sm text-gray-500 font-medium mb-3">Renewable Energy</p>
-                  
-                  <div className="flex flex-wrap gap-4 text-sm">
-                    <div><span className="text-gray-400 block text-xs">Issue Size</span><strong className="text-gray-800">₹2,900 Cr</strong></div>
-                    <div><span className="text-gray-400 block text-xs">Opens On</span><strong className="text-gray-800">12 Nov, 2024</strong></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-start md:items-end justify-center min-w-[200px]">
-                <button className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-2.5 rounded-lg transition-colors shadow-sm text-sm">
-                  Set Alert
-                </button>
-              </div>
-
-            </div>
-          </div>
-          
+      ) : ipos.length === 0 && !error ? (
+        <div className="text-center py-16 bg-gray-50 rounded-xl border border-gray-100">
+          <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <h3 className="text-lg font-medium text-gray-900 mb-1">No IPOs found</h3>
+          <p className="text-gray-500">No IPOs in this category right now. Check back soon.</p>
+          {activeTab !== 'all' && (
+            <button onClick={() => setActiveTab('all')} className="mt-4 text-orange-600 font-medium hover:text-orange-700">
+              View All IPOs
+            </button>
+          )}
         </div>
-
-        {/* Calendar Timeline */}
-        <div className="mt-12 bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          <div className="flex items-center gap-3 mb-8 border-b border-gray-100 pb-4">
-            <Calendar className="w-6 h-6 text-indigo-600" />
-            <h3 className="text-xl font-bold text-gray-900">IPO Calendar (Next 30 Days)</h3>
-          </div>
-          
-          <div className="relative border-l-2 border-indigo-100 pl-6 ml-3 space-y-8">
-             <div className="relative">
-               <span className="absolute w-4 h-4 rounded-full bg-indigo-500 -left-[33px] top-1 ring-4 ring-white shadow-sm"></span>
-               <div className="text-sm font-bold text-indigo-600 mb-1">08 Nov</div>
-               <div className="font-bold text-gray-900 text-lg">Swiggy Ltd closing</div>
-             </div>
-             <div className="relative opacity-60">
-               <span className="absolute w-4 h-4 rounded-full bg-gray-300 -left-[33px] top-1 ring-4 ring-white"></span>
-               <div className="text-sm font-bold text-gray-500 mb-1">12 Nov</div>
-               <div className="font-bold text-gray-900 text-lg">ACME Solar opens</div>
-             </div>
-             <div className="relative opacity-60">
-               <span className="absolute w-4 h-4 rounded-full bg-gray-300 -left-[33px] top-1 ring-4 ring-white"></span>
-               <div className="text-sm font-bold text-gray-500 mb-1">18 Nov</div>
-               <div className="font-bold text-gray-900 text-lg">NTPC Green Energy</div>
-             </div>
-          </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {ipos.map(ipo => (
+            <IPOCard key={ipo.id} ipo={ipo} />
+          ))}
         </div>
+      )}
 
-      </div>
+      {/* Demat Cross-sell */}
+      {!hasDematAccount && !loading && (
+        <div className="mt-12 bg-indigo-50 border border-indigo-100 rounded-xl p-8 flex flex-col md:flex-row items-center justify-between">
+          <div className="mb-4 md:mb-0">
+            <h3 className="text-xl font-bold text-indigo-900 mb-2">Apply for IPOs directly</h3>
+            <p className="text-indigo-700">Open a free Demat account in 5 minutes to start investing in IPOs.</p>
+          </div>
+          <button className="whitespace-nowrap bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition shadow-sm">
+            Open Demat Account
+          </button>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default IPOPage;

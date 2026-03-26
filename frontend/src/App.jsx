@@ -15,7 +15,9 @@ import OnboardingReminder from './components/profile/OnboardingReminder';
 import LandingPage from './pages/LandingPage';
 import ETPrimePage from './pages/ETPrimePage';
 import MasterclassPage from './pages/MasterclassPage';
+import CourseDetailPage from './pages/CourseDetailPage';
 import IPOPage from './pages/IPOPage';
+import IPODetailPage from './pages/IPODetailPage';
 import MarketsPage from './pages/MarketsPage';
 import FinancialServicesPage from './pages/FinancialServicesPage';
 import { ProfileDashboard as ProfilePage } from './components/profile/ProfileDashboard';
@@ -34,8 +36,10 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/et-prime" element={<ETPrimePage />} />
             <Route path="/masterclass" element={<MasterclassPage />} />
+            <Route path="/masterclass/:courseId" element={<CourseDetailPage />} />
             <Route path="/markets" element={<MarketsPage />} />
             <Route path="/ipo" element={<IPOPage />} />
+            <Route path="/ipo/:ipoId" element={<IPODetailPage />} />
             <Route path="/financial-services" element={<FinancialServicesPage />} />
             
             <Route path="/login" element={<Login />} />

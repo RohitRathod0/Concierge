@@ -11,7 +11,7 @@ const STAGES = [
   { key: 'advocacy', label: 'Advocacy', emoji: '🏆', color: '#f59e0b' },
 ];
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
 /**
  * JourneyMap - Full journey visualization with stage progress and milestones.

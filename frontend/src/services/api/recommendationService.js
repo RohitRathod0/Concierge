@@ -2,7 +2,7 @@ import apiClient from './apiClient';
 
 export const recommendationService = {
   getRecommendations: async (limit = 3) => {
-    const response = await apiClient.get('/recommendations', { params: { limit } });
+    const response = await apiClient.get('/api/v1/recommendations', { params: { limit } });
     return response.data;
   }
 };
