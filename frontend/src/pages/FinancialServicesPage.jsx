@@ -3,7 +3,18 @@ import { CreditCard, Home, ShieldCheck, HeartPulse, TrendingUp, Landmark, Sparkl
 
 export default function FinancialServicesPage() {
   const [activeTab, setActiveTab] = useState('Credit Cards');
+  const [isChecking, setIsChecking] = useState(false);
+  const [offersReady, setOffersReady] = useState(false);
   
+  const handleCheckOffers = () => {
+    setIsChecking(true);
+    setTimeout(() => {
+      setIsChecking(false);
+      setOffersReady(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 1500);
+  };
+
   const tabs = [
     { name: 'Credit Cards', icon: <CreditCard className="w-4 h-4 mr-2" /> },
     { name: 'Personal Loans', icon: <Landmark className="w-4 h-4 mr-2" /> },
@@ -24,20 +35,22 @@ export default function FinancialServicesPage() {
 
       <div className="max-w-7xl mx-auto w-full px-4 -mt-6 z-20">
          {/* AI Recommendation Strip */}
-         <div className="bg-gradient-to-r from-orange-500 to-[#d95215] rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row items-center gap-6 justify-between text-white border border-orange-400 mb-10 transform hover:-translate-y-1 transition-transform cursor-pointer">
+         {offersReady && (
+         <div className="bg-gradient-to-r from-orange-500 to-[#d95215] rounded-2xl p-6 shadow-xl flex flex-col sm:flex-row items-center gap-6 justify-between text-white border border-orange-400 mb-10 transform hover:-translate-y-1 transition-transform cursor-pointer animate-in fade-in slide-in-from-bottom-4">
             <div className="flex items-center gap-4">
                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm shrink-0">
-                 <Sparkles className="w-6 h-6 text-white" />
+                 <Sparkles className="w-6 h-6 text-white animate-pulse" />
                </div>
                <div>
                   <h3 className="font-extrabold text-lg">Based on your profile, you are pre-approved!</h3>
-                  <p className="text-orange-100 text-sm font-medium">We identified 3 credit cards with zero joining fee that match your spending habits.</p>
+                  <p className="text-orange-100 text-sm font-medium">We identified 3 credit cards with zero joining fee that match your declared monthly income.</p>
                </div>
             </div>
             <button className="bg-white text-orange-600 font-bold px-6 py-3 rounded-xl hover:bg-gray-50 transition-colors shadow-sm whitespace-nowrap w-full sm:w-auto">
                View My Offers
             </button>
          </div>
+         )}
 
          {/* Category Tabs */}
          <div className="flex overflow-x-auto gap-2 mb-10 pb-2 scrollbar-hide">
@@ -66,13 +79,16 @@ export default function FinancialServicesPage() {
 
                {/* Product Cards */}
                {[1,2,3].map((item) => (
-                  <div key={item} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col sm:flex-row gap-6">
+                  <div key={item} className={`bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow flex flex-col sm:flex-row gap-6 ${offersReady ? 'border-orange-200 bg-orange-50/10' : ''}`}>
                      <div className="w-full sm:w-32 h-24 bg-gray-50 rounded-xl flex items-center justify-center font-black text-gray-400 border border-gray-200 shrink-0">
                         {activeTab === 'Credit Cards' ? 'BANK LOGO' : 'PARTNER'}
                      </div>
                      <div className="flex-1 flex flex-col justify-between">
                         <div className="mb-4">
-                           <h3 className="text-lg font-extrabold text-gray-900 mb-1">Premium Rewards Card</h3>
+                           <div className="flex items-center justify-between">
+                             <h3 className="text-lg font-extrabold text-gray-900 mb-1">Premium Rewards Card</h3>
+                             {offersReady && <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded">Pre-Approved</span>}
+                           </div>
                            <p className="text-xs text-gray-500 font-medium bg-gray-100 px-2 py-1 rounded inline-block mb-3">Minimum Income: ₹40,000/mo</p>
                            
                            <ul className="space-y-1">
@@ -103,8 +119,16 @@ export default function FinancialServicesPage() {
                      <input type="text" placeholder="PAN Number" className="w-full bg-white border border-indigo-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 uppercase" />
                   </div>
                   
-                  <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-colors shadow-md text-sm relative z-10">
-                     Check Offers For Me
+                  <button 
+                    onClick={handleCheckOffers}
+                    disabled={isChecking || offersReady}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-colors shadow-md text-sm relative z-10 disabled:opacity-75"
+                  >
+                     {isChecking ? (
+                       <span className="flex items-center justify-center">
+                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div> Processing...
+                       </span>
+                     ) : offersReady ? 'Offers Unlocked!' : 'Check Offers For Me'}
                   </button>
                </div>
 

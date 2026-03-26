@@ -49,39 +49,39 @@ def send_message(message: MessageCreate, current_user: User = Depends(get_curren
         
     msg = result["assistant_message"]
     
-    # Dictionary conversion to safely attach new properties if it's an object
-    msg_dict = msg.dict() if hasattr(msg, "dict") else dict(msg)
+    # Safely convert SQLAlchemy model to dict
+    msg_dict = {
+        "message_id": getattr(msg, "message_id", None) or msg.get("message_id") if isinstance(msg, dict) else getattr(msg, "message_id", None),
+        "role": getattr(msg, "role", "assistant") if not isinstance(msg, dict) else msg.get("role", "assistant"),
+        "content": getattr(msg, "content", "") if not isinstance(msg, dict) else msg.get("content", ""),
+        "timestamp": getattr(msg, "timestamp", None) if not isinstance(msg, dict) else msg.get("timestamp", None),
+        "product_recommendation": None
+    }
     
-    # Keyword detection for cross-sell product cards
-    text = str(msg_dict.get("content", "")).lower()
-    
-    if "et prime" in text or "premium" in text or "exclusive" in text:
-        msg_dict["product_recommendation"] = {
-            "product_id": "prime1",
-            "headline": "ET Prime",
-            "subtext": "Get exclusive market insights before anyone else",
-            "price": "₹7/day",
-            "cta_text": "Start 7-Day Free Trial",
-            "cta_url": "/et-prime"
-        }
-    elif "masterclass" in text or "course" in text or "learn" in text:
-        msg_dict["product_recommendation"] = {
-            "product_id": "mc1",
-            "headline": "Masterclass",
-            "subtext": "Learn from SEBI-registered experts",
-            "price": "From ₹1,999",
-            "cta_text": "Explore Courses",
-            "cta_url": "/masterclass"
-        }
-    elif "ipo" in text or "demat" in text:
-        msg_dict["product_recommendation"] = {
-            "product_id": "ipo1",
-            "headline": "Open Demat",
-            "subtext": "You need a Demat account to apply for IPOs.",
-            "price": "Free",
-            "cta_text": "Open Now",
-            "cta_url": "/ipo"
-        }
+    # ET AI Phase 3.5: Deep Product Readiness Injection
+    try:
+        from src.database.models import ETProductReadiness
+        top_product = db.query(ETProductReadiness).filter(
+            ETProductReadiness.user_id == current_user.user_id,
+            ETProductReadiness.readiness_score >= 60
+        ).order_by(ETProductReadiness.readiness_score.desc()).first()
+        
+        if top_product:
+            card_map = {
+                "et_prime": {"headline":"ET Prime", "subtext": "AI-detected high match based on your profile.", "price":"₹7/day", "cta_text":"Start Free Trial", "cta_url":"/et-prime"},
+                "masterclass_beginner": {"headline":"Masterclass", "subtext":"Perfect for your current knowledge level.", "price":"From ₹1,999", "cta_text":"View Course", "cta_url":"/masterclass"},
+                "demat_account": {"headline":"Open Demat", "subtext":"Required to apply for upcoming IPOs.", "price":"Free", "cta_text":"Open Account", "cta_url":"/ipo"},
+                "ipo_alerts": {"headline":"IPO Alerts", "subtext":"Never miss another grey market premium update.", "price":"Free", "cta_text":"Enable Alerts", "cta_url":"/ipo"},
+                "term_insurance": {"headline":"Term Insurance", "subtext":"Protect your wealth generation goals.", "price":"As low as ₹500/mo", "cta_text":"Check Quote", "cta_url":"/financial-services"},
+                "wealth_summit": {"headline":"Wealth Summit", "subtext":"Network with top portfolio managers.", "price":"₹4,999", "cta_text":"Reserve Seat", "cta_url":"/masterclass"}
+            }
+            if top_product.product_id in card_map:
+                msg_dict["product_recommendation"] = card_map[top_product.product_id]
+                msg_dict["product_recommendation"]["product_id"] = top_product.product_id
+                msg_dict["product_recommendation"]["match_score"] = top_product.readiness_score
+    except Exception as e:
+        print("Failed to attach ML recommendation:", e)
+        pass
         
     return msg_dict
     

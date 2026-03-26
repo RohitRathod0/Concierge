@@ -129,6 +129,32 @@ class CoordinatorAgent(BaseAgent):
         except Exception:
             return "Could you tell me a bit more about what you're looking for?"
 
+    def _get_profile_summary(self, profile: dict) -> str:
+        if not profile:
+            return "No profile available."
+        
+        persona = profile.get("financial_persona", "CURIOUS_BEGINNER")
+        knowledge_level = profile.get("knowledge_level", "beginner")
+        primary_goal = profile.get("primary_goal", "Not specified")
+        risk_appetite = profile.get("risk_appetite", "moderate")
+        interests = profile.get("interested_products", [])
+        
+        return f"""USER PROFILE CONTEXT:
+- Persona: {persona}
+- Knowledge level: {knowledge_level}
+- Primary goal: {primary_goal}
+- Interests: {interests}
+- Risk appetite: {risk_appetite}
+
+GUIDELINES:
+- Match complexity to knowledge_level ({knowledge_level})
+- If knowledge_level=beginner: explain terms, use simple analogies, never assume prior knowledge
+- If primary_goal=GROW_WEALTH: frame everything as wealth building opportunity
+- If persona=ACTIVE_TRADER: Use technical terms (RSI, MACD). Be peer-level.
+- If persona=PASSIVE_INVESTOR: Focus on safety. Give cautious advice.
+- If persona=SME_OWNER: Connect concepts to business impact.
+- If persona=WEALTH_MANAGER: Talk about portfolio allocation, tax harvesting."""
+
     def _synthesize_response(self, state: AgentState) -> str:
         if not _model:
             # Fallback: return first agent's text output

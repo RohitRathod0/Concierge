@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import FeedCard from './FeedCard';
 import { feedService } from '../../services/api/feedService';
 import InlineCrossSellBanner from '../crosssell/InlineCrossSellBanner';
+import axios from 'axios';
+import { tracker } from '../../services/behaviorTracker';
 
 const fallbackFeed = [
   {
@@ -32,24 +34,35 @@ const fallbackFeed = [
 
 const PersonalizedFeed = ({ userId }) => {
   const [feed, setFeed] = useState([]);
+  const [recs, setRecs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    tracker.trackPageView('dashboard_feed');
+
     if (!userId) {
       setLoading(false);
       return;
     }
     
     setLoading(true);
-    feedService.getPersonalizedFeed(userId, 'morning')
-      .then(data => {
-        setFeed(data.feed || data || []);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Personalized feed failed", err);
-        setLoading(false);
-      });
+    
+    // Fetch feed and dynamic recommendations concurrently
+    Promise.all([
+      feedService.getPersonalizedFeed(userId, 'morning'),
+      axios.get('http://localhost:8000/api/v1/recommendations/for-me', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      }).catch(() => ({ data: { recommendations: [] } }))
+    ])
+    .then(([feedData, recsData]) => {
+      setFeed(feedData.feed || feedData || []);
+      setRecs(recsData.data.recommendations || []);
+      setLoading(false);
+    })
+    .catch(err => {
+      console.error("Personalized feed failed", err);
+      setLoading(false);
+    });
   }, [userId]);
 
   const handleFeedback = async (cardId, type) => {
@@ -72,6 +85,10 @@ const PersonalizedFeed = ({ userId }) => {
   }
 
   const displayFeed = feed.length > 0 ? feed : fallbackFeed;
+  
+  // Distribute cross-sells at index 0 and 3
+  const firstCrossSell = recs.length > 0 ? recs[0] : null;
+  const secondCrossSell = recs.length > 1 ? recs[1] : null;
 
   return (
     <div className="py-2">
@@ -80,24 +97,25 @@ const PersonalizedFeed = ({ userId }) => {
           <React.Fragment key={card.card_id || idx}>
             <FeedCard card={card} onFeedback={handleFeedback} />
             
-            {/* Inject Cross-Sell Banner dynamically after the first item */}
-            {idx === 0 && (
+            {/* Dynamic Inject: High Match Product */}
+            {idx === 0 && firstCrossSell && firstCrossSell.match_score > 40 && (
               <InlineCrossSellBanner 
-                type="prime" 
-                title="Unlock 500+ Premium Stock Screeners" 
-                text="Stop guessing. See exactly which stocks match your criteria in seconds." 
-                cta="Get ET Prime"
+                type={firstCrossSell.product_id.split('_')[0]} 
+                title={firstCrossSell.product_name} 
+                text={firstCrossSell.match_reason} 
+                cta={firstCrossSell.cta_text}
+                link={firstCrossSell.cta_url}
               />
             )}
             
-            {/* Inject another Cross-Sell Banner later down the feed */}
-            {idx === 3 && (
+            {/* Dynamic Inject: Secondary Match Product */}
+            {idx === 3 && secondCrossSell && secondCrossSell.match_score > 40 && (
               <InlineCrossSellBanner 
-                type="masterclass" 
-                title="Master Options Trading" 
-                text="Learn advanced strategies from SEBI-registered portfolio managers." 
-                cta="Explore Masterclass"
-                link="/masterclass"
+                type={secondCrossSell.product_id.split('_')[0]} 
+                title={secondCrossSell.product_name} 
+                text={secondCrossSell.match_reason} 
+                cta={secondCrossSell.cta_text}
+                link={secondCrossSell.cta_url}
               />
             )}
           </React.Fragment>
@@ -108,3 +126,4 @@ const PersonalizedFeed = ({ userId }) => {
 };
 
 export default PersonalizedFeed;
+

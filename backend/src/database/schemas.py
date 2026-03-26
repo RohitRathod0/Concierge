@@ -62,6 +62,16 @@ class ProfileUpdate(BaseModel):
     financial_goals: Optional[List[str]] = None
     interests: Optional[List[str]] = None
 
+class OnboardingStepSubmit(BaseModel):
+    step: int
+    answer: Any
+    field: str
+
+class BehavioralSignalCreate(BaseModel):
+    signal_type: str
+    signal_value: Dict[str, Any]
+    page_context: Optional[str] = None
+
 class ProfileResponse(BaseModel):
     profile_id: UUID
     user_id: UUID

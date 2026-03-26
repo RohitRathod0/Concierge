@@ -1,5 +1,5 @@
-from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, Numeric, Text, text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey, Integer, Numeric, Text, text, UniqueConstraint, BigInteger
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY, DATE
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -50,6 +50,36 @@ class UserProfile(Base):
     life_stage_confidence = Column(Numeric(3, 2), nullable=True)
     behavioral_signals = Column(JSONB, nullable=True)
     last_enriched_at = Column(DateTime, nullable=True)
+    
+    # Phase 3.5 additions
+    # Phase 3.5 additions: 10-Point Deep Profiling (Refined Behavioral)
+    financial_persona = Column(String(50), nullable=True)
+    # The 10 final vectors
+    income_stability = Column(String(50), nullable=True)
+    financial_cushion = Column(String(50), nullable=True)
+    expense_pressure = Column(String(50), nullable=True)
+    debt_stress = Column(String(50), nullable=True)
+    type_of_debt = Column(String(50), nullable=True)
+    protection_status = Column(String(50), nullable=True)
+    wealth_stage = Column(String(50), nullable=True)
+    money_behavior = Column(String(50), nullable=True)
+    financial_direction = Column(String(50), nullable=True)
+    responsibility_load = Column(String(50), nullable=True)
+    
+    # Legacy fields
+    knowledge_level = Column(String(20), default='beginner')
+    primary_goal = Column(String(50), nullable=True)
+    risk_appetite = Column(String(20), nullable=True)
+    monthly_investment_capacity = Column(String(30), nullable=True)
+    profession = Column(String(100), nullable=True)
+    age_bracket = Column(String(20), nullable=True)
+    city = Column(String(100), nullable=True)
+    city_tier = Column(String(10), nullable=True)
+    has_demat_account = Column(Boolean, default=False)
+    has_et_prime = Column(Boolean, default=False)
+    interested_sectors = Column(JSONB, nullable=True)
+    interested_products = Column(JSONB, nullable=True)
+    onboarding_completed = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="profile")
 
@@ -344,3 +374,151 @@ class NotificationLog(Base):
     status = Column(String(50), default='sent')
     sent_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
     opened_at = Column(DateTime, nullable=True)
+
+# ============================================================
+# Phase 3.5 New Models (Deep User Profiling)
+# ============================================================
+
+class BehavioralSignal(Base):
+    """Logs every meaningful user action."""
+    __tablename__ = 'behavioral_signals'
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    signal_type = Column(String(50), nullable=False)
+    signal_value = Column(JSONB, nullable=False)
+    page_context = Column(String(100), nullable=True)
+    session_id = Column(String(100), nullable=True)
+    created_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+
+class ETProductReadiness(Base):
+    """Per-product conversion readiness score (0-100)."""
+    __tablename__ = 'et_product_readiness'
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    product_id = Column(String(50), nullable=False)
+    readiness_score = Column(Integer, default=0)
+    last_shown_at = Column(DateTime, nullable=True)
+    last_clicked_at = Column(DateTime, nullable=True)
+    last_rejected_at = Column(DateTime, nullable=True)
+    conversion_status = Column(String(30), default='not_started')
+    updated_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    
+    __table_args__ = (UniqueConstraint('user_id', 'product_id', name='uq_user_product_readiness'),)
+
+class ProfileVersion(Base):
+    """Tracks how profile evolves for ML training."""
+    __tablename__ = 'profile_versions'
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    profile_snapshot = Column(JSONB, nullable=False)
+    trigger_event = Column(String(100), nullable=True)
+    created_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+
+# ============================================================
+# ET Market Features Models
+# ============================================================
+
+class IPO(Base):
+    __tablename__ = 'ipos'
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    company_name = Column(String(200), nullable=False)
+    company_logo_url = Column(String(500), nullable=True)
+    sector = Column(String(100), nullable=True)
+    issue_size_cr = Column(Numeric(12, 2), nullable=True)
+    price_band_low = Column(Integer, nullable=True)
+    price_band_high = Column(Integer, nullable=True)
+    open_date = Column(DATE, nullable=True)
+    close_date = Column(DATE, nullable=True)
+    listing_date = Column(DATE, nullable=True)
+    gmp_premium = Column(Integer, default=0)
+    gmp_percent = Column(Numeric(5, 2), default=0)
+    et_rating = Column(Integer, default=3)
+    et_verdict = Column(String(500), nullable=True)
+    lot_size = Column(Integer, nullable=True)
+    min_investment = Column(Integer, nullable=True)
+    status = Column(String(20), default='upcoming')
+    listing_price = Column(Numeric(10, 2), nullable=True)
+    listing_gain_percent = Column(Numeric(5, 2), nullable=True)
+    about = Column(Text, nullable=True)
+    strengths = Column(ARRAY(Text), nullable=True)
+    risks = Column(ARRAY(Text), nullable=True)
+    registrar = Column(String(200), nullable=True)
+    created_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    updated_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+
+class IPOAlert(Base):
+    __tablename__ = 'ipo_alerts'
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    ipo_id = Column(UUID(as_uuid=True), ForeignKey('ipos.id', ondelete='CASCADE'), nullable=False)
+    alert_type = Column(String(30), default='open_soon')
+    created_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    __table_args__ = (UniqueConstraint('user_id', 'ipo_id', name='uq_user_ipo_alert'),)
+
+class Course(Base):
+    __tablename__ = 'courses'
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    title = Column(String(300), nullable=False)
+    slug = Column(String(300), unique=True, nullable=False)
+    description = Column(Text, nullable=True)
+    short_description = Column(String(500), nullable=True)
+    category = Column(String(50), nullable=False)
+    level = Column(String(20), nullable=False)
+    instructor_name = Column(String(200), nullable=False)
+    instructor_bio = Column(String(500), nullable=True)
+    instructor_avatar_url = Column(String(500), nullable=True)
+    duration_hours = Column(Numeric(4, 1), nullable=True)
+    total_modules = Column(Integer, nullable=True)
+    total_learners = Column(Integer, default=0)
+    rating = Column(Numeric(3, 2), default=4.0)
+    price = Column(Integer, nullable=False)
+    original_price = Column(Integer, nullable=True)
+    is_free = Column(Boolean, default=False)
+    thumbnail_url = Column(String(500), nullable=True)
+    preview_video_url = Column(String(500), nullable=True)
+    badge_label = Column(String(50), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    updated_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+
+class CourseModule(Base):
+    __tablename__ = 'course_modules'
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    course_id = Column(UUID(as_uuid=True), ForeignKey('courses.id', ondelete='CASCADE'), nullable=False)
+    module_number = Column(Integer, nullable=False)
+    title = Column(String(300), nullable=False)
+    duration_minutes = Column(Integer, nullable=True)
+    is_free_preview = Column(Boolean, default=False)
+
+class CourseEnrollment(Base):
+    __tablename__ = 'course_enrollments'
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    course_id = Column(UUID(as_uuid=True), ForeignKey('courses.id', ondelete='CASCADE'), nullable=False)
+    enrolled_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    progress_pct = Column(Integer, default=0)
+    last_module_completed = Column(Integer, default=0)
+    completed_at = Column(DateTime, nullable=True)
+    __table_args__ = (UniqueConstraint('user_id', 'course_id', name='uq_user_course_enroll'),)
+
+class WatchlistItem(Base):
+    __tablename__ = 'watchlist_items'
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    symbol = Column(String(20), nullable=False)
+    company_name = Column(String(200), nullable=True)
+    sector = Column(String(100), nullable=True)
+    added_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    __table_args__ = (UniqueConstraint('user_id', 'symbol', name='uq_user_symbol_watchlist'),)
+
+class MarketDataCache(Base):
+    __tablename__ = 'market_data_cache'
+    symbol = Column(String(30), primary_key=True)
+    price = Column(Numeric(12, 2), nullable=True)
+    change_amount = Column(Numeric(10, 2), nullable=True)
+    change_percent = Column(Numeric(6, 2), nullable=True)
+    volume = Column(BigInteger, nullable=True)
+    high_52w = Column(Numeric(12, 2), nullable=True)
+    low_52w = Column(Numeric(12, 2), nullable=True)
+    market_cap = Column(BigInteger, nullable=True)
+    last_updated = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
