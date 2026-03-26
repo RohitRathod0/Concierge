@@ -1,0 +1,23 @@
+{
+  "existing_tables": [
+    "users",
+    "user_profiles",
+    "conversations",
+    "messages",
+    "recommendations",
+    "et_products",
+    "conversation_states",
+    "journey_stages",
+    "milestones",
+    "user_events",
+    "agent_executions",
+    "rag_documents"
+  ],
+  "creation_errors": {
+    "journey_stages": "(psycopg2.errors.DuplicateTable) relation \"journey_stages\" already exists\n\n[SQL: \nCREATE TABLE journey_stages (\n\tjourney_id UUID DEFAULT gen_random_uuid() NOT NULL, \n\tuser_id UUID, \n\tcurrent_stage VARCHAR(50) NOT NULL, \n\tstage_started_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL, \n\tprevious_stage VARCHAR(50), \n\tvelocity_score NUMERIC(3, 2), \n\tupdated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP, \n\tPRIMARY KEY (journey_id), \n\tUNIQUE (user_id), \n\tFOREIGN KEY(user_id) REFERENCES users (user_id) ON DELETE CASCADE\n)\n\n]\n(Background on this error at: https://sqlalche.me/e/20/f405)",
+    "milestones": "(psycopg2.errors.DuplicateTable) relation \"milestones\" already exists\n\n[SQL: \nCREATE TABLE milestones (\n\tmilestone_id UUID DEFAULT gen_random_uuid() NOT NULL, \n\tuser_id UUID, \n\tmilestone_name VARCHAR(100) NOT NULL, \n\tjourney_stage VARCHAR(50) NOT NULL, \n\tcompleted BOOLEAN, \n\tcompleted_at TIMESTAMP WITHOUT TIME ZONE, \n\treward_points INTEGER, \n\tcreated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP, \n\tPRIMARY KEY (milestone_id), \n\tCONSTRAINT uq_user_milestone UNIQUE (user_id, milestone_name), \n\tFOREIGN KEY(user_id) REFERENCES users (user_id) ON DELETE CASCADE\n)\n\n]\n(Background on this error at: https://sqlalche.me/e/20/f405)",
+    "user_events": "(psycopg2.errors.DuplicateTable) relation \"user_events\" already exists\n\n[SQL: \nCREATE TABLE user_events (\n\tevent_id UUID DEFAULT gen_random_uuid() NOT NULL, \n\tuser_id UUID, \n\tevent_type VARCHAR(100) NOT NULL, \n\tevent_category VARCHAR(50), \n\tevent_data JSONB DEFAULT '{}'::jsonb NOT NULL, \n\tsession_id UUID, \n\ttimestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP, \n\tPRIMARY KEY (event_id), \n\tFOREIGN KEY(user_id) REFERENCES users (user_id) ON DELETE CASCADE\n)\n\n]\n(Background on this error at: https://sqlalche.me/e/20/f405)",
+    "agent_executions": "(psycopg2.errors.DuplicateTable) relation \"agent_executions\" already exists\n\n[SQL: \nCREATE TABLE agent_executions (\n\texecution_id UUID DEFAULT gen_random_uuid() NOT NULL, \n\tsession_id UUID, \n\tagent_name VARCHAR(50) NOT NULL, \n\tinput_data JSONB DEFAULT '{}'::jsonb NOT NULL, \n\toutput_data JSONB DEFAULT '{}'::jsonb NOT NULL, \n\texecution_time_ms INTEGER NOT NULL, \n\tsuccess BOOLEAN NOT NULL, \n\terror_message TEXT, \n\ttimestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP, \n\tPRIMARY KEY (execution_id), \n\tFOREIGN KEY(session_id) REFERENCES conversations (session_id) ON DELETE CASCADE\n)\n\n]\n(Background on this error at: https://sqlalche.me/e/20/f405)",
+    "conversation_states": "(psycopg2.errors.DuplicateTable) relation \"conversation_states\" already exists\n\n[SQL: \nCREATE TABLE conversation_states (\n\tstate_id UUID DEFAULT gen_random_uuid() NOT NULL, \n\tsession_id UUID, \n\tcheckpoint_id VARCHAR(100) NOT NULL, \n\tstate_data JSONB NOT NULL, \n\tcreated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP, \n\tPRIMARY KEY (state_id), \n\tFOREIGN KEY(session_id) REFERENCES conversations (session_id) ON DELETE CASCADE\n)\n\n]\n(Background on this error at: https://sqlalche.me/e/20/f405)"
+  }
+}
