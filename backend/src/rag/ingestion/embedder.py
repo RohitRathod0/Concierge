@@ -15,7 +15,7 @@ EMBEDDING_DIM = 384
 
 try:
     from sentence_transformers import SentenceTransformer
-    _model = SentenceTransformer(MODEL_NAME)
+    _model = SentenceTransformer(MODEL_NAME, local_files_only=True)
     _st_available = True
     logger.info(f"Embedder: sentence-transformers model loaded ({MODEL_NAME})")
 except Exception as e:

@@ -36,10 +36,33 @@ from src.api.routes.vernacular import router as vernacular_router
 # ET Market Features
 try:
     from src.api.routes.ipo import router as ipo_router
+except ImportError:
+    ipo_router = None
+
+try:
     from src.api.routes.courses import router as courses_router
+except ImportError:
+    courses_router = None
+
+try:
     from src.api.routes.markets import router as markets_router
 except ImportError:
-    pass
+    markets_router = None
+
+try:
+    from src.api.routes.portfolio import router as portfolio_router
+except ImportError:
+    portfolio_router = None
+
+try:
+    from src.api.routes.contextual import router as contextual_router
+except ImportError:
+    contextual_router = None
+
+try:
+    from src.api.routes.news import router as news_router
+except ImportError:
+    news_router = None
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
@@ -91,12 +114,37 @@ app.include_router(notifications_router)
 app.include_router(vernacular_router)
 
 # ET Market Features
-try:
+if ipo_router is not None:
     app.include_router(ipo_router, prefix='/api/v1', tags=['ipo'])
+else:
+    logger.warning("Optional router unavailable: ipo")
+
+if courses_router is not None:
     app.include_router(courses_router, prefix='/api/v1', tags=['courses'])
+else:
+    logger.warning("Optional router unavailable: courses")
+
+if markets_router is not None:
     app.include_router(markets_router, prefix='/api/v1', tags=['markets'])
-except NameError:
-    pass
+else:
+    logger.warning("Optional router unavailable: markets")
+
+if portfolio_router is not None:
+    app.include_router(portfolio_router, prefix='/api/v1', tags=['portfolio'])
+else:
+    logger.warning("Optional router unavailable: portfolio")
+
+if contextual_router is not None:
+    app.include_router(contextual_router, prefix='/api/v1', tags=['contextual'])
+else:
+    logger.warning("Optional router unavailable: contextual")
+
+if news_router is not None:
+    app.include_router(news_router, prefix='/api/v1', tags=['news'])
+else:
+    logger.warning("Optional router unavailable: news")
+
+app.include_router(notifications_router, prefix='/api/v1', tags=['notifications'])
 
 @app.get("/health")
 def health_check():

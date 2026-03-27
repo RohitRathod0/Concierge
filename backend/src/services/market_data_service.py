@@ -74,12 +74,12 @@ def update_cache_for_preset_symbols(db: Session):
                 cache.asset_class = 'equity'
                 cache.name = sym.split('.')[0]
                 
-            cache.current_price = data['current_price']
-            cache.change = data['change']
+            cache.price = data['current_price']
+            cache.change_amount = data['change']
             cache.change_percent = data['change_percent']
             cache.volume = data['volume']
-            cache.high_52week = data['high_52week']
-            cache.low_52week = data['low_52week']
+            cache.high_52w = data['high_52week']
+            cache.low_52w = data['low_52week']
             cache.last_updated = data['last_updated']
             
     db.commit()

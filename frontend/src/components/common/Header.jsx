@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Bell, Menu, ChevronDown } from 'lucide-react';
+import { Search, Menu, ChevronDown } from 'lucide-react';
+import NotificationBell from '../notifications/NotificationBell';
 
 export default function Header() {
   return (
@@ -24,6 +25,8 @@ export default function Header() {
             <Link to="/markets" className="text-gray-600 hover:text-gray-900 font-semibold text-sm transition-colors">Markets</Link>
             <Link to="/ipo" className="text-gray-600 hover:text-gray-900 font-semibold text-sm transition-colors">IPO</Link>
             <Link to="/masterclass" className="text-gray-600 hover:text-gray-900 font-semibold text-sm transition-colors">Masterclass</Link>
+            <Link to="/portfolio" className="text-gray-600 hover:text-gray-900 font-semibold text-sm transition-colors">Portfolio</Link>
+            <Link to="/news" className="text-gray-600 hover:text-gray-900 font-semibold text-sm transition-colors">News</Link>
             <Link to="/et-prime" className="text-gray-600 hover:text-gray-900 font-semibold text-sm transition-colors">ET Prime</Link>
             <Link to="/financial-services" className="text-gray-600 hover:text-gray-900 font-semibold text-sm transition-colors">Services</Link>
           </nav>
@@ -34,10 +37,7 @@ export default function Header() {
               <Search className="w-5 h-5" />
             </button>
             
-            <button className="relative text-gray-500 hover:text-gray-900 transition-colors">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
-            </button>
+            <NotificationBell />
             
             <div className="hidden sm:flex items-center gap-2 cursor-pointer pl-2 border-l border-gray-200">
               <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 text-gray-600 font-bold text-sm">

@@ -7,16 +7,10 @@ import os
 import json
 import logging
 from typing import Optional
-import google.generativeai as genai
+
+from src.services.gemini_client import get_gemini_model
 
 logger = logging.getLogger(__name__)
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    _model = genai.GenerativeModel('gemini-1.5-flash')
-else:
-    _model = None
 
 EXTRACTION_PROMPT = """Extract user profile information from this conversation.
 
@@ -58,13 +52,14 @@ def extract_entities(conversation_text: str) -> dict:
     Returns a dict with extracted entity fields and confidence_scores.
     Fields with confidence < 0.6 will be null.
     """
-    if not _model:
+    model = get_gemini_model()
+    if not model:
         return _empty_extraction()
 
     prompt = EXTRACTION_PROMPT.format(conversation=conversation_text)
 
     try:
-        response = _model.generate_content(prompt)
+        response = model.generate_content(prompt)
         text = response.text.strip()
         if text.startswith("```"):
             text = text.split("```")[1]

@@ -6,16 +6,10 @@ import os
 import json
 import logging
 from typing import Optional
-import google.generativeai as genai
+
+from src.services.gemini_client import get_gemini_model
 
 logger = logging.getLogger(__name__)
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    _model = genai.GenerativeModel('gemini-1.5-flash')
-else:
-    _model = None
 
 VALID_INTENTS = [
     "profiling_needed",
@@ -63,8 +57,13 @@ def classify_intent(
     Returns:
         dict with keys: intent, confidence, reasoning
     """
-    if not _model:
-        return {"intent": "general_question", "confidence": 0.5, "reasoning": "LLM unavailable"}
+    heuristic = _heuristic_classification(message)
+    if heuristic:
+        return heuristic
+
+    model = get_gemini_model()
+    if not model:
+        return {"intent": "general_question", "confidence": 0.8, "reasoning": "heuristic fallback without LLM"}
 
     prompt = CLASSIFICATION_PROMPT.format(
         message=message,
@@ -74,7 +73,7 @@ def classify_intent(
     )
 
     try:
-        response = _model.generate_content(prompt)
+        response = model.generate_content(prompt)
         text = response.text.strip()
         # Strip markdown code fences if present
         if text.startswith("```"):
@@ -89,7 +88,48 @@ def classify_intent(
         return {"intent": intent, "confidence": confidence, "reasoning": result.get("reasoning", "")}
     except Exception as e:
         logger.error(f"Intent classification failed: {e}")
-        return {"intent": "general_question", "confidence": 0.5, "reasoning": "classification_error"}
+        return {"intent": "general_question", "confidence": 0.8, "reasoning": "classification_error_fallback"}
+
+
+def _heuristic_classification(message: str) -> Optional[dict]:
+    message_lower = (message or "").lower()
+
+    if not message_lower.strip():
+        return {"intent": "general_question", "confidence": 0.8, "reasoning": "empty_message"}
+
+    product_terms = [
+        "et prime", "et markets", "masterclass", "course", "subscription",
+        "wealth summit", "financial services", "portfolio", "watchlist",
+    ]
+    finance_terms = [
+        "sip", "mutual fund", "mutual funds", "stock", "stocks", "ipo",
+        "tax", "invest", "investing", "market", "nifty", "sensex", "elss",
+    ]
+    feedback_terms = ["bug", "error", "slow", "not working", "broken", "issue", "problem", "crash"]
+    profiling_terms = [
+        "my profile", "according to my profile", "i am ", "i'm ", "my age",
+        "my income", "salary", "risk tolerance", "beginner", "experienced",
+    ]
+
+    product_hits = sum(term in message_lower for term in product_terms)
+    finance_hits = sum(term in message_lower for term in finance_terms)
+
+    if any(term in message_lower for term in feedback_terms):
+        return {"intent": "feedback", "confidence": 0.92, "reasoning": "feedback keywords detected"}
+
+    if (" and " in message_lower or "alongside" in message_lower or "bundle" in message_lower) and product_hits >= 2:
+        return {"intent": "cross_sell_opportunity", "confidence": 0.9, "reasoning": "multiple product references detected"}
+
+    if product_hits >= 1 or ("et" in message_lower and ("best course" in message_lower or "course" in message_lower)):
+        return {"intent": "product_inquiry", "confidence": 0.9, "reasoning": "product-related keywords detected"}
+
+    if any(term in message_lower for term in profiling_terms) and finance_hits == 0:
+        return {"intent": "profiling_needed", "confidence": 0.82, "reasoning": "profile-sharing keywords detected"}
+
+    if finance_hits >= 1:
+        return {"intent": "general_question", "confidence": 0.88, "reasoning": "finance question keywords detected"}
+
+    return None
 
 
 def needs_clarification(confidence: float, threshold: float = 0.75) -> bool:

@@ -365,16 +365,6 @@ class NotificationPreference(Base):
     dnd_start = Column(String(5), default='22:00')
     dnd_end = Column(String(5), default='07:00')
 
-class NotificationLog(Base):
-    __tablename__ = 'notification_logs'
-    log_id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'))
-    notification_type = Column(String(100), nullable=False)
-    channel = Column(String(50), nullable=False)
-    status = Column(String(50), default='sent')
-    sent_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
-    opened_at = Column(DateTime, nullable=True)
-
 # ============================================================
 # Phase 3.5 New Models (Deep User Profiling)
 # ============================================================
@@ -522,3 +512,92 @@ class MarketDataCache(Base):
     low_52w = Column(Numeric(12, 2), nullable=True)
     market_cap = Column(BigInteger, nullable=True)
     last_updated = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    asset_class = Column(String(50), nullable=True)
+    name = Column(String(100), nullable=True)
+
+# ============================================================
+# Phase 3.0 Advanced AI Agents Models
+# ============================================================
+
+class UserPortfolio(Base):
+    __tablename__ = 'user_portfolios'
+    portfolio_id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    stock_symbol = Column(String(20), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    average_price = Column(Numeric(10,2), nullable=False)
+    purchase_date = Column(DATE, nullable=True)
+    sector = Column(String(50), nullable=True)
+    created_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+
+class PortfolioAnalysis(Base):
+    __tablename__ = 'portfolio_analyses'
+    analysis_id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    total_investment = Column(Numeric(12,2), nullable=True)
+    current_value = Column(Numeric(12,2), nullable=True)
+    gain_loss = Column(Numeric(12,2), nullable=True)
+    diversification_score = Column(Integer, nullable=True)
+    risk_score = Column(Integer, nullable=True)
+    gaps_identified = Column(JSONB, nullable=True)
+    recommendations = Column(JSONB, nullable=True)
+    macro_report = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+
+class ServiceRecommendation(Base):
+    __tablename__ = 'service_recommendations'
+    recommendation_id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    service_name = Column(String(255), nullable=False)
+    reason = Column(Text, nullable=True)
+    context = Column(String(100), nullable=True)
+    shown_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    clicked = Column(Boolean, default=False)
+    dismissed = Column(Boolean, default=False)
+
+class ReadingBehavior(Base):
+    __tablename__ = 'reading_behavior'
+    behavior_id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=False)
+    article_id = Column(String(100), nullable=False)
+    article_category = Column(String(50), nullable=True)
+    time_spent_seconds = Column(Integer, default=0)
+    scroll_depth_percentage = Column(Integer, default=0)
+    keywords = Column(JSONB, nullable=True)
+    timestamp = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+
+
+class PushSubscription(Base):
+    """Stores browser Web Push subscriptions (VAPID)."""
+    __tablename__ = 'push_subscriptions'
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=True)
+    endpoint = Column(Text, nullable=False, unique=True)
+    p256dh_key = Column(Text, nullable=False)
+    auth_key = Column(Text, nullable=False)
+    user_agent = Column(String(300), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    last_used_at = Column(DateTime, nullable=True)
+
+    def get_subscription_info(self) -> dict:
+        return {
+            "endpoint": self.endpoint,
+            "keys": {
+                "p256dh": self.p256dh_key,
+                "auth": self.auth_key,
+            }
+        }
+
+
+class NotificationLog(Base):
+    """Log of all sent notifications per user."""
+    __tablename__ = 'notification_logs'
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete='CASCADE'), nullable=True)
+    trigger_type = Column(String(100), nullable=False)
+    title = Column(String(300), nullable=True)
+    body = Column(Text, nullable=True)
+    is_read = Column(Boolean, default=False)
+    sent_at = Column(DateTime, server_default=text('CURRENT_TIMESTAMP'))
+    clicked_at = Column(DateTime, nullable=True)

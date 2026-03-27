@@ -7,19 +7,12 @@ import json
 import time
 import logging
 from typing import Optional
-import google.generativeai as genai
 
 from src.agents.base_agent import BaseAgent, AgentState
 from src.tools.intent_classifier import classify_intent
+from src.services.gemini_client import get_gemini_model
 
 logger = logging.getLogger(__name__)
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    _model = genai.GenerativeModel('gemini-1.5-flash')
-else:
-    _model = None
 
 SYSTEM_PROMPT = """You are ET Advisor — India's smartest AI financial guide, powered by The Economic Times. You're like a knowledgeable friend who happens to know everything about finance, markets, and investing.
 
@@ -121,10 +114,11 @@ class CoordinatorAgent(BaseAgent):
         return state
 
     def _generate_clarification(self, message: str) -> str:
-        if not _model:
+        model = get_gemini_model()
+        if not model:
             return "Could you clarify what you're looking for?"
         try:
-            response = _model.generate_content(CLARIFICATION_PROMPT.format(message=message))
+            response = model.generate_content(CLARIFICATION_PROMPT.format(message=message))
             return response.text.strip()
         except Exception:
             return "Could you tell me a bit more about what you're looking for?"
@@ -156,7 +150,8 @@ GUIDELINES:
 - If persona=WEALTH_MANAGER: Talk about portfolio allocation, tax harvesting."""
 
     def _synthesize_response(self, state: AgentState) -> str:
-        if not _model:
+        model = get_gemini_model()
+        if not model:
             # Fallback: return first agent's text output
             for agent_key, agent_out in state.get("agent_outputs", {}).items():
                 if isinstance(agent_out, dict) and agent_out.get("response"):
@@ -178,7 +173,7 @@ GUIDELINES:
             cross_sell_priority=state.get("cross_sell_priority", "None at this time"),
         )
         try:
-            response = _model.generate_content(f"System: {SYSTEM_PROMPT}\n\n{prompt}")
+            response = model.generate_content(f"System: {SYSTEM_PROMPT}\n\n{prompt}")
             return response.text.strip()
         except Exception as e:
             logger.error(f"Response synthesis failed: {e}")

@@ -20,6 +20,8 @@ import IPOPage from './pages/IPOPage';
 import IPODetailPage from './pages/IPODetailPage';
 import MarketsPage from './pages/MarketsPage';
 import FinancialServicesPage from './pages/FinancialServicesPage';
+import PortfolioPage from './pages/PortfolioPage';
+import NewsPage from './pages/NewsPage';
 import { ProfileDashboard as ProfilePage } from './components/profile/ProfileDashboard';
 
 function App() {
@@ -41,6 +43,8 @@ function App() {
             <Route path="/ipo" element={<IPOPage />} />
             <Route path="/ipo/:ipoId" element={<IPODetailPage />} />
             <Route path="/financial-services" element={<FinancialServicesPage />} />
+            <Route path="/news" element={<NewsPage />} />
+            <Route path="/news/:articleId" element={<NewsPage />} />
             
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
@@ -51,6 +55,7 @@ function App() {
               <Route path="/chat" element={<Chat />} />
               <Route path="/onboarding" element={<OnboardingWizard />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/portfolio" element={<PortfolioPage />} />
             </Route>
           </Routes>
           </ErrorBoundary>

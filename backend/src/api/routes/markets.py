@@ -19,8 +19,8 @@ def get_live_markets(db: Session = Depends(get_db)):
     equities = [d for d in data if d.asset_class == 'equity']
     
     return {
-        "indices": [{"symbol": i.symbol, "name": i.name, "price": float(i.current_price) if i.current_price else 0.0, "change": float(i.change) if i.change else 0.0, "change_percent": float(i.change_percent) if i.change_percent else 0.0} for i in indices],
-        "top_movers": [{"symbol": e.symbol, "name": e.name, "price": float(e.current_price) if e.current_price else 0.0, "change": float(e.change) if e.change else 0.0, "change_percent": float(e.change_percent) if e.change_percent else 0.0} for e in equities]
+        "indices": [{"symbol": i.symbol, "name": i.name, "price": float(i.price) if i.price else 0.0, "change": float(i.change_amount) if i.change_amount else 0.0, "change_percent": float(i.change_percent) if i.change_percent else 0.0} for i in indices],
+        "top_movers": [{"symbol": e.symbol, "name": e.name, "price": float(e.price) if e.price else 0.0, "change": float(e.change_amount) if e.change_amount else 0.0, "change_percent": float(e.change_percent) if e.change_percent else 0.0} for e in equities]
     }
 
 @router.post("/watchlist")
@@ -66,8 +66,8 @@ def get_watchlist(current_user: User = Depends(get_current_user), db: Session = 
             "id": str(i.id),
             "symbol": i.symbol,
             "asset_class": i.asset_class,
-            "price": float(c_data.current_price) if c_data and c_data.current_price else None,
-            "change": float(c_data.change) if c_data and c_data.change else None,
+            "price": float(c_data.price) if c_data and c_data.price else None,
+            "change": float(c_data.change_amount) if c_data and c_data.change_amount else None,
             "change_percent": float(c_data.change_percent) if c_data and c_data.change_percent else None
         })
     return {"watchlist": result}

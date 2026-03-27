@@ -6,19 +6,12 @@ import os
 import time
 import logging
 from typing import List, Optional
-import google.generativeai as genai
 
 from src.agents.base_agent import BaseAgent, AgentState
 from src.tools.product_matcher import match_products
+from src.services.gemini_client import get_gemini_model
 
 logger = logging.getLogger(__name__)
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    _model = genai.GenerativeModel('gemini-1.5-flash')
-else:
-    _model = None
 
 USE_RAG = os.getenv("USE_RAG_NAVIGATION", "false").lower() == "true"
 
@@ -110,7 +103,8 @@ class NavigatorAgent(BaseAgent):
         return state
 
     def _rag_response(self, question: str, profile_summary: str, retrieved_context: List[dict]) -> str:
-        if not _model:
+        model = get_gemini_model()
+        if not model:
             return self._fallback_response(question)
 
         context_text = "\n\n".join([
@@ -124,14 +118,15 @@ class NavigatorAgent(BaseAgent):
             retrieved_context=context_text,
         )
         try:
-            response = _model.generate_content(f"System: {SYSTEM_PROMPT}\n\n{prompt}")
+            response = model.generate_content(f"System: {SYSTEM_PROMPT}\n\n{prompt}")
             return response.text.strip()
         except Exception as e:
             logger.error(f"RAG response generation failed: {e}")
             return self._fallback_response(question)
 
     def _direct_response(self, question: str, profile_summary: str, history_text: str) -> str:
-        if not _model:
+        model = get_gemini_model()
+        if not model:
             return self._fallback_response(question)
 
         prompt = DIRECT_RESPONSE_PROMPT.format(
@@ -140,7 +135,7 @@ class NavigatorAgent(BaseAgent):
             history=history_text,
         )
         try:
-            response = _model.generate_content(f"System: {SYSTEM_PROMPT}\n\n{prompt}")
+            response = model.generate_content(f"System: {SYSTEM_PROMPT}\n\n{prompt}")
             return response.text.strip()
         except Exception as e:
             logger.error(f"Direct response generation failed: {e}")

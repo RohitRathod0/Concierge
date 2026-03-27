@@ -7,20 +7,13 @@ import time
 import json
 import logging
 from typing import Optional
-import google.generativeai as genai
 
 from src.agents.base_agent import BaseAgent, AgentState
 from src.tools.entity_extractor import extract_entities, merge_extractions
 from src.tools.segment_classifier import classify_segment
+from src.services.gemini_client import get_gemini_model
 
 logger = logging.getLogger(__name__)
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
-    _model = genai.GenerativeModel('gemini-1.5-flash')
-else:
-    _model = None
 
 SYSTEM_PROMPT = """You are the Profiling Agent for ET AI Concierge.
 Your role is to understand users deeply through natural conversation.
@@ -126,7 +119,8 @@ class ProfilingAgent(BaseAgent):
         if not missing:
             return "Thanks for sharing! I have a good picture of what you're looking for."
 
-        if not _model:
+        model = get_gemini_model()
+        if not model:
             priority = missing[0].replace("_", " ")
             return f"To personalize your experience better, could you tell me about your {priority}?"
 
@@ -139,7 +133,7 @@ class ProfilingAgent(BaseAgent):
         )
 
         try:
-            response = _model.generate_content(f"System: {SYSTEM_PROMPT}\n\n{prompt}")
+            response = model.generate_content(f"System: {SYSTEM_PROMPT}\n\n{prompt}")
             return response.text.strip()
         except Exception as e:
             logger.error(f"Question generation failed: {e}")
