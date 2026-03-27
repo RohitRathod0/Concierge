@@ -1,53 +1,42 @@
 """
-ET AI Concierge — Agentic Chat Route (FULLY REWRITTEN)
-=======================================================
-This is the MAIN chat endpoint. Every message goes through:
-1. Profile loading from DB (so the AI knows who it's talking to)
-2. Conversation history loading (context memory)
-3. Gemini LLM call with FULL profile-injected system prompt
-4. Returns: answer + LLM-generated personalized cross_sell recommendation
+ET AI Concierge — Agentic Chat Route v4 (LangGraph-powered)
+============================================================
+Every message goes through the LangGraph:
+  classify_intent → route_by_intent → specialist_agent (with ReAct + tools) → response
+
+The specialist agent fetches REAL data from the DB and formats a personalized answer.
+Zero hardcoded strings in response generation.
 """
-import os
 import uuid
 import logging
+import time
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional, List
 
+from langchain_core.messages import HumanMessage, AIMessage
+
 from src.database.connection import get_db
 from src.database.models import User, UserProfile, Conversation, Message
 from src.services.auth_service import SECRET_KEY, ALGORITHM
-from src.services.llm_service import generate_response_agentic, classify_intent
 from jose import JWTError, jwt
 from fastapi.security import OAuth2PasswordBearer
-from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/chat", tags=["chat-agent"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
-# ── Schemas ────────────────────────────────────────────────────────────────
+# ── Schemas ─────────────────────────────────────────────────────────────────
 class AgentMessageRequest(BaseModel):
     message: str
     session_id: Optional[uuid.UUID] = None
-    context: Optional[dict] = None   # e.g. {"page": "/news", "article": "Nifty hits ATH"}
+    context: Optional[dict] = None  # {page, article, stock, ipo}
 
 
-class AgentMessageResponse(BaseModel):
-    session_id: str
-    message_id: Optional[str] = None
-    response: dict
-    agent_trace: Optional[dict] = None
-
-
-# ── Auth helper ────────────────────────────────────────────────────────────
-def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
-):
+# ── Auth ─────────────────────────────────────────────────────────────────────
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -66,27 +55,7 @@ def get_current_user(
     return user
 
 
-# ── Helper: build profile dict from ORM model ──────────────────────────────
-def _profile_to_dict(user: User, profile: Optional[UserProfile]) -> dict:
-    base = {"name": user.name or "Investor"}
-    if not profile:
-        return base
-    return {
-        **base,
-        "age_group": profile.age_group or "",
-        "occupation": profile.occupation or "",
-        "industry": profile.industry or "",
-        "income_level": profile.income_level or "",
-        "investment_experience": profile.investment_experience or "",
-        "risk_tolerance": profile.risk_tolerance or "",
-        "financial_goals": profile.financial_goals or [],
-        "interests": profile.interests or [],
-        "life_stage": profile.life_stage or "",
-        "primary_segment": profile.primary_segment or "",
-    }
-
-
-# ── Helper: get or create conversation session ─────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
 def _get_or_create_session(db: Session, user_id: uuid.UUID, session_id: Optional[uuid.UUID]) -> Conversation:
     if session_id:
         conv = db.query(Conversation).filter(
@@ -95,7 +64,6 @@ def _get_or_create_session(db: Session, user_id: uuid.UUID, session_id: Optional
         ).first()
         if conv:
             return conv
-    # Create new
     conv = Conversation(user_id=user_id)
     db.add(conv)
     db.commit()
@@ -103,19 +71,56 @@ def _get_or_create_session(db: Session, user_id: uuid.UUID, session_id: Optional
     return conv
 
 
-# ── Helper: fetch history ──────────────────────────────────────────────────
-def _get_history(db: Session, session_id: uuid.UUID, limit: int = 12) -> List[dict]:
-    messages = (
+def _fetch_history(db: Session, session_id: uuid.UUID, limit: int = 10) -> List[dict]:
+    msgs = (
         db.query(Message)
         .filter(Message.session_id == session_id)
         .order_by(Message.timestamp.asc())
         .limit(limit)
         .all()
     )
-    return [{"role": m.role, "content": m.content} for m in messages]
+    return [{"role": m.role, "content": m.content} for m in msgs]
 
 
-# ── Main agentic chat endpoint ─────────────────────────────────────────────
+def _build_initial_state(user: User, profile: Optional[UserProfile], history: List[dict], message: str, page_context: dict) -> dict:
+    """Build the full ETAgentState dict from DB data."""
+    # Convert history to LangChain messages
+    lc_messages = []
+    for m in history:
+        if m["role"] == "user":
+            lc_messages.append(HumanMessage(content=m["content"]))
+        else:
+            lc_messages.append(AIMessage(content=m["content"]))
+    lc_messages.append(HumanMessage(content=message))
+
+    state = {
+        "messages": lc_messages,
+        "user_id": str(user.user_id),
+        "user_name": user.name or "Investor",
+        "user_persona": getattr(profile, "primary_segment", None),
+        "user_knowledge_level": None,
+        "user_interests": getattr(profile, "interests", None) or [],
+        "user_risk_appetite": getattr(profile, "risk_tolerance", None),
+        "investment_experience": getattr(profile, "investment_experience", None),
+        "age_group": getattr(profile, "age_group", None),
+        "occupation": getattr(profile, "occupation", None),
+        "income_level": getattr(profile, "income_level", None),
+        "financial_goals": getattr(profile, "financial_goals", None) or [],
+        "life_stage": getattr(profile, "life_stage", None),
+        "has_et_prime": False,
+        "has_demat_account": False,
+        "detected_intent": None,
+        "current_page": page_context.get("page"),
+        "article_context": page_context.get("article") or page_context.get("ipo") or page_context.get("stock"),
+        "tool_results": None,
+        "product_to_recommend": None,
+        "response_ready": False,
+        "execution_trace": None,
+    }
+    return state
+
+
+# ── Main endpoint ─────────────────────────────────────────────────────────────
 @router.post("/agent-message")
 def send_agent_message(
     request: AgentMessageRequest,
@@ -123,104 +128,128 @@ def send_agent_message(
     db: Session = Depends(get_db),
 ):
     """
-    TRUE AGENTIC CHAT:
-    - Loads user profile from DB
-    - Injects profile into Gemini system prompt
-    - Gets LLM-generated personalized answer + cross-sell
-    - Returns dynamic structured response
+    TRUE AGENTIC CHAT — powered by LangGraph.
+    Flow: classify_intent → route → specialist agent (ReAct + DB tools) → response.
+    Every answer is generated from real DB data, not hardcoded templates.
     """
-    import time
     t_start = time.time()
 
-    # 1. Get user profile
-    profile = db.query(UserProfile).filter(
-        UserProfile.user_id == current_user.user_id
-    ).first()
-    user_profile_dict = _profile_to_dict(current_user, profile)
+    # 1. Load profile
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.user_id).first()
 
-    # 2. Get or create conversation session
+    # 2. Session management
     conv = _get_or_create_session(db, current_user.user_id, request.session_id)
     session_id = conv.session_id
 
-    # 3. Load conversation history
-    history = _get_history(db, session_id)
+    # 3. Conversation history
+    history = _fetch_history(db, session_id)
 
-    # 4. Extract page context from request
-    page_context = None
-    if request.context:
-        parts = []
-        if request.context.get("page"):
-            parts.append(f"Page: {request.context['page']}")
-        if request.context.get("article"):
-            parts.append(f"Article being read: {request.context['article']}")
-        if request.context.get("stock"):
-            parts.append(f"Stock being viewed: {request.context['stock']}")
-        if request.context.get("ipo"):
-            parts.append(f"IPO being viewed: {request.context['ipo']}")
-        if request.context.get("query"):
-            parts.append(f"Search query: {request.context['query']}")
-        page_context = " | ".join(parts) if parts else None
+    # 4. Page context
+    page_ctx = request.context or {}
 
-    # 5. Classify intent (async, non-blocking label for analytics)
-    intent = "general_question"
-    try:
-        intent = classify_intent(request.message)
-    except Exception:
-        pass
+    # 5. Build initial state
+    initial_state = _build_initial_state(current_user, profile, history, request.message, page_ctx)
 
-    # 6. Save user message
-    user_msg = Message(
+    # 6. Save user message to DB
+    user_msg_obj = Message(
         session_id=session_id,
         role="user",
         content=request.message,
-        intent_detected=intent,
+        intent_detected=None,
     )
-    db.add(user_msg)
-    db.flush()  # get message_id without committing
+    db.add(user_msg_obj)
+    db.flush()
 
-    # 7. Add user msg to history for context
-    history.append({"role": "user", "content": request.message})
+    # 7. Run the LangGraph
+    answer_text = ""
+    detected_intent = "general_question"
+    cross_sell = None
+    execution_trace = {
+        "provider": "gemini",
+        "framework": "langgraph",
+        "mode": "langgraph_v4",
+        "used_tools": False,
+        "tools_used": [],
+    }
 
-    # 8. CALL THE AGENTIC LLM — this is the brain
     try:
-        llm_result = generate_response_agentic(
-            message=request.message,
-            history=history,
-            user_profile=user_profile_dict,
-            page_context=page_context,
-        )
-    except Exception as e:
-        logger.error(f"Gemini call failed: {e}", exc_info=True)
-        llm_result = {
-            "answer": "I'm having trouble right now. Could you please rephrase your question?",
-            "cross_sell": None,
+        from src.agents.graph import et_graph
+        if et_graph is None:
+            raise RuntimeError("LangGraph failed to compile on startup")
+
+        result = et_graph.invoke(initial_state)
+        detected_intent = result.get("detected_intent") or "general_question"
+        execution_trace = {
+            **execution_trace,
+            **(result.get("execution_trace") or {}),
         }
 
-    answer_text = llm_result.get("answer", "")
-    cross_sell = llm_result.get("cross_sell")
+        # Extract last AI message
+        for msg in reversed(result.get("messages", [])):
+            if isinstance(msg, AIMessage) and msg.content:
+                answer_text = msg.content
+                break
+
+        if not answer_text:
+            answer_text = "I wasn't able to generate a response. Please try rephrasing your question."
+
+    except Exception as e:
+        logger.error(f"LangGraph invocation failed: {e}", exc_info=True)
+        # Fallback to the reliable local agentic fallback
+        try:
+            from src.services.llm_service import _local_agentic_fallback
+            profile_dict = {
+                "name": current_user.name,
+                "investment_experience": getattr(profile, "investment_experience", ""),
+                "risk_tolerance": getattr(profile, "risk_tolerance", ""),
+                "age_group": getattr(profile, "age_group", ""),
+                "financial_goals": getattr(profile, "financial_goals", []) or [],
+            } if profile else {}
+            fallback = _local_agentic_fallback(request.message, profile_dict, page_ctx.get("page"))
+            answer_text = fallback.get("answer", "I'm having trouble right now. Please try again.")
+            cross_sell = fallback.get("cross_sell")
+            execution_trace = {
+                "provider": "local_fallback",
+                "framework": "langgraph",
+                "mode": "fallback_after_langgraph_error",
+                "used_tools": False,
+                "tools_used": [],
+                "error": type(e).__name__,
+            }
+        except Exception as e2:
+            logger.error(f"Fallback also failed: {e2}")
+            answer_text = "I'm having trouble right now. Please try again in a moment."
+            execution_trace = {
+                "provider": "none",
+                "framework": "langgraph",
+                "mode": "fatal_error",
+                "used_tools": False,
+                "tools_used": [],
+                "error": type(e2).__name__,
+            }
 
     t_ms = int((time.time() - t_start) * 1000)
 
-    # 9. Save assistant message
-    ai_msg = Message(
+    # 8. Save assistant message
+    ai_msg_obj = Message(
         session_id=session_id,
         role="assistant",
         content=answer_text,
-        intent_detected=intent,
-        agent_used="gemini_agentic_v3",
+        intent_detected=detected_intent,
+        agent_used="langgraph_v4",
     )
-    db.add(ai_msg)
+    db.add(ai_msg_obj)
     conv.message_count = (conv.message_count or 0) + 2
     db.commit()
-    db.refresh(ai_msg)
+    db.refresh(ai_msg_obj)
 
-    # 10. Log analytics event
+    # 9. Analytics
     try:
         from src.analytics.event_tracker import event_tracker
         event_tracker.track(
             str(current_user.user_id),
-            "agentic_message_sent",
-            {"intent": intent, "has_cross_sell": bool(cross_sell), "profile_complete": bool(profile)},
+            "langgraph_message",
+            {"intent": detected_intent, "profile_loaded": bool(profile), "ms": t_ms},
             session_id=str(session_id),
         )
     except Exception:
@@ -228,20 +257,28 @@ def send_agent_message(
 
     return {
         "session_id": str(session_id),
-        "message_id": str(ai_msg.message_id),
+        "message_id": str(ai_msg_obj.message_id),
         "response": {
             "text": answer_text,
-            "agent_used": "gemini_agentic_v3",
-            "intent": intent,
+            "agent_used": "langgraph_v4",
+            "intent": detected_intent,
             "cross_sell": cross_sell,
             "profile_used": bool(profile),
-            "page_context_used": bool(page_context),
             "execution_ms": t_ms,
+            "response_source": execution_trace.get("provider"),
+            "tools_used": execution_trace.get("tools_used", []),
         },
         "agent_trace": {
-            "mode": "agentic_v3",
-            "profile_complete": bool(profile),
-            "intent": intent,
+            "mode": "langgraph_v4",
+            "intent": detected_intent,
             "execution_time_ms": t_ms,
+            "profile_complete": bool(profile),
+            "provider": execution_trace.get("provider"),
+            "framework": execution_trace.get("framework"),
+            "model": execution_trace.get("model"),
+            "used_tools": execution_trace.get("used_tools", False),
+            "tools_used": execution_trace.get("tools_used", []),
+            "raw_mode": execution_trace.get("mode"),
+            "error": execution_trace.get("error"),
         },
     }

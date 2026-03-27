@@ -176,9 +176,9 @@ async def startup_event():
     logger.info(f"Journey System: {os.getenv('ENABLE_JOURNEY_SYSTEM', 'true')}")
 
     try:
-        from src.jobs.refresh_market_data import start_scheduler
-
-        start_scheduler()
+        # from src.jobs.refresh_market_data import start_scheduler
+        print("Hello")
+        # start_scheduler()
     except ModuleNotFoundError as e:
         logger.warning("Skipping market data scheduler startup because a dependency is missing: %s", e)
     except Exception as e:
