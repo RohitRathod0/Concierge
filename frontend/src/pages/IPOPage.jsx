@@ -1,9 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore';
 import { ipoService } from '../services/api/ipoService';
 import IPOCard from '../components/ipo/IPOCard';
-import PageSkeleton from '../components/common/PageSkeleton';
+import {
+  ArrowLeft,
+  Sparkles,
+  TrendingUp,
+  ShieldAlert,
+  Brain,
+  CircleDollarSign,
+  CalendarClock,
+  BadgeCheck,
+  ChevronRight,
+  LineChart,
+  Briefcase,
+  AlertTriangle
+} from 'lucide-react';
 
 const IPOPage = () => {
   const navigate = useNavigate();
@@ -21,7 +34,9 @@ const IPOPage = () => {
   async function fetchIPOs(status) {
     setLoading(true);
     try {
-      const data = await ipoService.getIPOList({ status: status === 'all' ? undefined : status });
+      const data = await ipoService.getIPOList({
+        status: status === 'all' ? undefined : status
+      });
       setIpos(data.ipos || []);
       setStatusCounts(data.status_counts || { open: 0, upcoming: 0, closed: 0, listed: 0 });
       setError(null);
@@ -33,118 +48,361 @@ const IPOPage = () => {
   }
 
   const tabs = [
-    { id: 'all', label: `All (${(statusCounts.open || 0) + (statusCounts.upcoming || 0) + (statusCounts.closed || 0) + (statusCounts.listed || 0)})` },
-    { id: 'open', label: `Open (${statusCounts.open || 0}) 🔴` },
+    {
+      id: 'all',
+      label: `All (${(statusCounts.open || 0) + (statusCounts.upcoming || 0) + (statusCounts.closed || 0) + (statusCounts.listed || 0)})`
+    },
+    { id: 'open', label: `Open (${statusCounts.open || 0})` },
     { id: 'upcoming', label: `Upcoming (${statusCounts.upcoming || 0})` },
     { id: 'listed', label: `Recently Listed (${statusCounts.listed || 0})` }
   ];
 
   const hasDematAccount = user?.has_demat_account === true;
-  const openIpos = ipos.filter(i => i.status === 'open');
+  const openIpos = ipos.filter((i) => i.status === 'open');
+
+  const selectedSpotlightIPO = useMemo(() => {
+    if (openIpos.length > 0) return openIpos[0];
+    if (ipos.length > 0) return ipos[0];
+    return null;
+  }, [openIpos, ipos]);
+
+  const userRiskLabel =
+    user?.risk_profile || user?.risk_appetite || user?.investment_style || 'Balanced';
+
+  const aiSuggestions = [
+    {
+      icon: <Brain className="w-5 h-5 text-sky-600" />,
+      title: 'Should you invest in this IPO?',
+      desc: 'Use AI-guided analysis to understand whether an IPO matches your risk profile and goals.'
+    },
+    {
+      icon: <TrendingUp className="w-5 h-5 text-emerald-600" />,
+      title: 'Expected listing gains',
+      desc: 'See quick signals based on demand, GMP trends and category sentiment.'
+    },
+    {
+      icon: <LineChart className="w-5 h-5 text-indigo-600" />,
+      title: 'Long-term vs short-term potential',
+      desc: 'Understand if the opportunity looks better for listing gains or longer holding.'
+    }
+  ];
+
+  const explainers = [
+    {
+      icon: <BadgeCheck className="w-5 h-5 text-sky-700" />,
+      title: 'High Potential IPOs',
+      desc: 'Strong fundamentals, healthy demand and attractive sector outlook.'
+    },
+    {
+      icon: <ShieldAlert className="w-5 h-5 text-amber-600" />,
+      title: 'Risky IPOs',
+      desc: 'Premium pricing, weak fundamentals or uncertain business visibility.'
+    },
+    {
+      icon: <CircleDollarSign className="w-5 h-5 text-emerald-700" />,
+      title: 'Simple IPO Guidance',
+      desc: 'We explain IPOs in plain language so you can make clearer decisions.'
+    }
+  ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Breadcrumb */}
-      <nav className="mb-4">
-        <button onClick={() => navigate('/services')} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors flex items-center gap-1">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-          Services / IPO Hub
-        </button>
-      </nav>
-
-      {/* Hero */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 tracking-tight">IPO Hub</h1>
-        <p className="mt-2 text-lg text-gray-600">Track, evaluate and invest in upcoming IPOs with AI guidance</p>
-      </div>
-
-      {/* Open IPO Banner */}
-      {openIpos.length > 0 && activeTab === 'all' && (
-        <div className="mb-8 bg-gradient-to-r from-orange-500 to-red-500 rounded-xl p-6 text-white shadow-md flex flex-col md:flex-row items-center justify-between">
-          <div>
-            <span className="inline-block bg-white text-red-600 text-xs font-bold px-2 py-1 rounded mb-2 uppercase tracking-widest">LIVE NOW</span>
-            <h2 className="text-xl font-bold mb-1">IPO OPEN: {openIpos[0].company_name}</h2>
-            <p className="text-white/90">GMP: +₹{openIpos[0].gmp_premium} • Min Invest: ₹{openIpos[0].min_investment}</p>
-          </div>
-          <button 
-            onClick={() => navigate(`/ipo/${openIpos[0].id}`)}
-            className="mt-4 md:mt-0 bg-white text-orange-600 px-6 py-2 rounded-lg font-bold hover:bg-orange-50 transition-colors shadow-sm"
-          >
-            View Details
-          </button>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6 flex space-x-6 overflow-x-auto pb-1">
-        {tabs.map(tab => (
+    <div className="min-h-screen bg-gradient-to-br from-[#f7fbff] via-[#eef6ff] to-[#e9f3ff]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Breadcrumb */}
+        <nav className="mb-5">
           <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === tab.id
-                ? 'border-orange-500 text-orange-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            onClick={() => navigate('/financial-services')}
+            className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors flex items-center gap-2"
           >
-            {tab.label}
+            <ArrowLeft className="w-4 h-4" />
+            Services / IPO Hub
           </button>
-        ))}
-      </div>
+        </nav>
 
-      {/* Main Content */}
-      {error && (
-        <div className="bg-red-50 p-4 border border-red-200 rounded-lg text-red-700 flex flex-col items-center">
-          <p className="mb-3">{error}</p>
-          <button onClick={() => fetchIPOs(activeTab)} className="px-4 py-2 bg-white text-red-600 border border-red-200 rounded font-medium hover:bg-red-100">Try Again</button>
-        </div>
-      )}
+        {/* Hero */}
+        <div className="relative overflow-hidden rounded-[32px] border border-blue-100 bg-gradient-to-r from-sky-100 via-white to-indigo-100 shadow-[0_20px_70px_rgba(59,130,246,0.12)] mb-8">
+          <div className="absolute top-0 right-0 w-72 h-72 bg-sky-300/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-72 h-72 bg-indigo-200/20 rounded-full blur-3xl" />
 
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1,2,3,4,5,6].map(i => (
-             <div key={i} className="bg-white border border-gray-100 rounded-xl p-5 h-80 animate-pulse flex flex-col">
-                <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
-                <div className="h-20 bg-gray-100 rounded mb-4"></div>
-                <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-                <div className="h-10 bg-gray-200 rounded w-full mt-auto"></div>
-             </div>
-          ))}
-        </div>
-      ) : ipos.length === 0 && !error ? (
-        <div className="text-center py-16 bg-gray-50 rounded-xl border border-gray-100">
-          <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-          <h3 className="text-lg font-medium text-gray-900 mb-1">No IPOs found</h3>
-          <p className="text-gray-500">No IPOs in this category right now. Check back soon.</p>
-          {activeTab !== 'all' && (
-            <button onClick={() => setActiveTab('all')} className="mt-4 text-orange-600 font-medium hover:text-orange-700">
-              View All IPOs
-            </button>
-          )}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {ipos.map(ipo => (
-            <IPOCard key={ipo.id} ipo={ipo} />
-          ))}
-        </div>
-      )}
+          <div className="relative px-6 md:px-8 py-8 md:py-10">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/90 border border-blue-100 px-4 py-2 text-xs font-extrabold uppercase tracking-wider text-sky-700 shadow-sm mb-5">
+              <Sparkles className="w-4 h-4" />
+              AI-assisted IPO intelligence
+            </div>
 
-      {/* Demat Cross-sell */}
-      {!hasDematAccount && !loading && (
-        <div className="mt-12 bg-indigo-50 border border-indigo-100 rounded-xl p-8 flex flex-col md:flex-row items-center justify-between">
-          <div className="mb-4 md:mb-0">
-            <h3 className="text-xl font-bold text-indigo-900 mb-2">Apply for IPOs directly</h3>
-            <p className="text-indigo-700">Open a free Demat account in 5 minutes to start investing in IPOs.</p>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-8">
+                <h1 className="text-3xl md:text-5xl font-black text-slate-900 leading-tight tracking-tight">
+                  IPO Hub for smarter, data-backed investing
+                </h1>
+                <p className="mt-4 text-slate-600 text-base md:text-lg max-w-3xl leading-relaxed">
+                  Track upcoming and ongoing IPOs, understand company fundamentals,
+                  compare opportunity vs risk, and get AI-guided suggestions that help
+                  reduce confusion around IPO investing.
+                </p>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <div className="rounded-2xl bg-white/90 border border-blue-100 px-4 py-3 shadow-sm">
+                    <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Your Risk Profile</div>
+                    <div className="text-sm font-black text-sky-700">{userRiskLabel}</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/90 border border-blue-100 px-4 py-3 shadow-sm">
+                    <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Open IPOs</div>
+                    <div className="text-sm font-black text-emerald-600">{statusCounts.open || 0}</div>
+                  </div>
+                  <div className="rounded-2xl bg-white/90 border border-blue-100 px-4 py-3 shadow-sm">
+                    <div className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Upcoming IPOs</div>
+                    <div className="text-sm font-black text-indigo-600">{statusCounts.upcoming || 0}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-4">
+                <div className="rounded-3xl border border-blue-100 bg-white/85 backdrop-blur-md p-5 shadow-sm">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-11 h-11 rounded-2xl bg-sky-100 flex items-center justify-center">
+                      <Brain className="w-5 h-5 text-sky-700" />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-slate-900">AI IPO Guidance</h3>
+                      <p className="text-xs text-slate-500">Personalized for your profile</p>
+                    </div>
+                  </div>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    We help you understand whether an IPO may be better suited for listing gains,
+                    long-term holding, or cautious avoidance.
+                  </p>
+                  <button
+                    onClick={() => navigate('/chat')}
+                    className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-sky-700 hover:gap-2 transition-all"
+                  >
+                    Ask Eva about IPOs <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-          <button className="whitespace-nowrap bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-700 transition shadow-sm">
-            Open Demat Account
-          </button>
         </div>
-      )}
+
+        {/* Spotlight Banner */}
+        {selectedSpotlightIPO && (
+          <div className="mb-8 rounded-2xl border border-blue-100 bg-gradient-to-r from-sky-500 via-blue-500 to-indigo-500 p-6 text-white shadow-lg">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              <div>
+                <span className="inline-flex items-center gap-2 bg-white text-blue-700 text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-widest mb-3">
+                  <CalendarClock className="w-3.5 h-3.5" />
+                  {selectedSpotlightIPO.status === 'open' ? 'Live now' : 'Spotlight'}
+                </span>
+
+                <h2 className="text-2xl md:text-3xl font-black leading-tight">
+                  {selectedSpotlightIPO.company_name}
+                </h2>
+
+                <p className="mt-2 text-blue-100 text-sm md:text-base max-w-2xl">
+                  AI highlight: This IPO can be reviewed for listing potential, demand strength,
+                  pricing comfort and fit with your personal investment profile.
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <div className="bg-white/15 rounded-xl px-4 py-2 text-sm font-semibold">
+                    GMP: +₹{selectedSpotlightIPO.gmp_premium ?? 'N/A'}
+                  </div>
+                  <div className="bg-white/15 rounded-xl px-4 py-2 text-sm font-semibold">
+                    Min Invest: ₹{selectedSpotlightIPO.min_investment ?? 'N/A'}
+                  </div>
+                  <div className="bg-white/15 rounded-xl px-4 py-2 text-sm font-semibold capitalize">
+                    Status: {selectedSpotlightIPO.status}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => navigate(`/ipo/${selectedSpotlightIPO.id}`)}
+                  className="bg-white text-blue-700 px-6 py-3 rounded-xl font-bold hover:bg-blue-50 transition shadow-sm"
+                >
+                  View Details
+                </button>
+                <button
+                  onClick={() => navigate('/chat')}
+                  className="bg-white/15 hover:bg-white/20 border border-white/20 text-white px-6 py-3 rounded-xl font-bold transition"
+                >
+                  Ask Eva
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Smart suggestion cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {aiSuggestions.map((item, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-blue-100 bg-white/90 p-5 shadow-sm hover:shadow-md transition-all"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center">
+                  {item.icon}
+                </div>
+                <h3 className="font-extrabold text-slate-900">{item.title}</h3>
+              </div>
+              <p className="text-sm text-slate-600 leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs */}
+        <div className="mb-8 rounded-2xl border border-blue-100 bg-white/80 backdrop-blur-md p-2 shadow-sm">
+          <div className="flex flex-wrap gap-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`whitespace-nowrap rounded-xl px-4 py-3 text-sm font-bold transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-sky-600 text-white shadow-md'
+                    : 'text-slate-600 hover:bg-sky-50 hover:text-sky-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Explainers */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {explainers.map((item, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-blue-100 bg-white/85 p-5 shadow-sm"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center">
+                  {item.icon}
+                </div>
+                <h3 className="font-extrabold text-slate-900">{item.title}</h3>
+              </div>
+              <p className="text-sm text-slate-600 leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Main Content */}
+        {error && (
+          <div className="bg-red-50 p-6 border border-red-200 rounded-2xl text-red-700 flex flex-col items-center shadow-sm">
+            <AlertTriangle className="w-8 h-8 mb-3" />
+            <p className="mb-3 font-medium">{error}</p>
+            <button
+              onClick={() => fetchIPOs(activeTab)}
+              className="px-4 py-2 bg-white text-red-600 border border-red-200 rounded-lg font-medium hover:bg-red-100"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div
+                key={i}
+                className="bg-white border border-blue-100 rounded-2xl p-5 h-80 animate-pulse flex flex-col shadow-sm"
+              >
+                <div className="h-6 bg-slate-200 rounded w-1/2 mb-4"></div>
+                <div className="h-20 bg-slate-100 rounded-xl mb-4"></div>
+                <div className="h-4 bg-slate-200 rounded w-full mb-2"></div>
+                <div className="h-4 bg-slate-200 rounded w-3/4 mb-4"></div>
+                <div className="h-10 bg-slate-200 rounded-xl w-full mt-auto"></div>
+              </div>
+            ))}
+          </div>
+        ) : ipos.length === 0 && !error ? (
+          <div className="text-center py-16 bg-white/80 rounded-2xl border border-blue-100 shadow-sm">
+            <Briefcase className="mx-auto h-12 w-12 text-slate-400 mb-4" />
+            <h3 className="text-lg font-bold text-slate-900 mb-1">No IPOs found</h3>
+            <p className="text-slate-500">
+              No IPOs are available in this category right now. Check back soon.
+            </p>
+            {activeTab !== 'all' && (
+              <button
+                onClick={() => setActiveTab('all')}
+                className="mt-4 text-sky-600 font-bold hover:text-sky-700"
+              >
+                View All IPOs
+              </button>
+            )}
+          </div>
+        ) : (
+          <div>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900">IPO Listings</h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  Evaluate IPOs through company details, opportunity signals and AI guidance.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {ipos.map((ipo) => (
+                <IPOCard key={ipo.id} ipo={ipo} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Bottom smart panel */}
+        <div className="mt-12 rounded-[28px] border border-blue-100 bg-gradient-to-r from-sky-100 via-white to-indigo-100 p-6 md:p-8 shadow-sm">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+            <div className="lg:col-span-8">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/90 border border-blue-100 px-4 py-2 text-xs font-extrabold uppercase tracking-wider text-sky-700 mb-4">
+                <Sparkles className="w-4 h-4" />
+                Smarter IPO decisions
+              </div>
+              <h3 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">
+                Reduce confusion and invest with more confidence
+              </h3>
+              <p className="mt-3 text-slate-600 leading-relaxed max-w-3xl">
+                Get help understanding whether an IPO looks promising, overpriced, short-term driven,
+                or worth considering for longer-term allocation. AI suggestions are designed to help
+                you make more informed decisions—not just faster ones.
+              </p>
+            </div>
+
+            <div className="lg:col-span-4 flex flex-col gap-3 lg:items-end">
+              <button
+                onClick={() => navigate('/chat')}
+                className="w-full lg:w-auto bg-sky-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-sky-700 transition shadow-sm"
+              >
+                Ask Eva: Should I invest?
+              </button>
+
+              {!hasDematAccount && !loading && (
+                <button className="w-full lg:w-auto bg-white text-indigo-700 border border-indigo-200 font-bold py-3 px-6 rounded-xl hover:bg-indigo-50 transition shadow-sm">
+                  Open Demat Account
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Demat Cross-sell */}
+        {!hasDematAccount && !loading && (
+          <div className="mt-8 bg-white/90 border border-indigo-100 rounded-2xl p-8 flex flex-col md:flex-row items-center justify-between shadow-sm">
+            <div className="mb-4 md:mb-0">
+              <h3 className="text-xl font-black text-indigo-900 mb-2">Apply for IPOs directly</h3>
+              <p className="text-indigo-700">
+                Open a free Demat account in minutes to start investing in IPOs with ease.
+              </p>
+            </div>
+            <button className="whitespace-nowrap bg-indigo-600 text-white font-bold py-3 px-6 rounded-xl hover:bg-indigo-700 transition shadow-sm">
+              Open Demat Account
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
