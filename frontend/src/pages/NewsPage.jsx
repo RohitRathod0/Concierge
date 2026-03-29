@@ -73,14 +73,8 @@ function ArticleReader({ article, onBack }) {
   const [suggestionKey, setSuggestionKey] = useState(Date.now());
 
   useEffect(() => {
-    const handleScroll = () => {
-      const scrolled = window.scrollY;
-      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-      if (docHeight > 0) setScrollDepth(Math.round((scrolled / docHeight) * 100));
-    };
-    window.addEventListener('scroll', handleScroll);
     const timer = setInterval(() => setElapsed(Math.round((Date.now() - startRef.current) / 1000)), 1000);
-    return () => { window.removeEventListener('scroll', handleScroll); clearInterval(timer); };
+    return () => clearInterval(timer);
   }, []);
 
   const readTime = Math.max(1, Math.round((article.content?.length || 300) / 1200));
@@ -99,18 +93,13 @@ function ArticleReader({ article, onBack }) {
         <Zap className="w-4 h-4 text-orange-500 flex-shrink-0" />
         <div className="flex-1">
           <div className="text-xs font-bold text-orange-700">🤖 Contextual Cross-Sell Agent — LIVE</div>
-          <div className="text-[10px] text-orange-600 mt-0.5">Monitoring reading behavior. Suggestion triggers at: 30s read time AND 25% scroll depth.</div>
+          <div className="text-[10px] text-orange-600 mt-0.5">Monitoring reading behavior. Suggestion triggers at: 31s read time.</div>
         </div>
         <div className="flex gap-3 text-[10px] font-mono">
           <div className="bg-white rounded-lg px-2 py-1 border border-orange-200">
             <span className="text-gray-500">Time:</span>
-            <span className={`ml-1 font-bold ${elapsed >= 30 ? 'text-green-600' : 'text-orange-700'}`}>{elapsed}s</span>
-            {elapsed >= 30 && <span className="text-green-500 ml-1">✓</span>}
-          </div>
-          <div className="bg-white rounded-lg px-2 py-1 border border-orange-200">
-            <span className="text-gray-500">Scroll:</span>
-            <span className={`ml-1 font-bold ${scrollDepth >= 25 ? 'text-green-600' : 'text-orange-700'}`}>{scrollDepth}%</span>
-            {scrollDepth >= 25 && <span className="text-green-500 ml-1">✓</span>}
+            <span className={`ml-1 font-bold ${elapsed >= 31 ? 'text-green-600' : 'text-orange-700'}`}>{elapsed}s</span>
+            {elapsed >= 31 && <span className="text-green-500 ml-1">✓</span>}
           </div>
         </div>
       </div>
@@ -143,11 +132,8 @@ function ArticleReader({ article, onBack }) {
         {/* Padding to enable scroll depth triggering */}
         <div className="h-6" />
         <p className="text-sm text-gray-600 bg-blue-50 rounded-xl p-4 border border-blue-100">
-          <strong>📊 Editor's Note:</strong> This article is powered by the ET AI Concierge's real-time news feed. The Contextual Cross-Sell Agent is actively analyzing your reading engagement. Once you've spent 30 seconds here and scrolled 25% down, a personalized ET service recommendation will appear in the bottom-right corner.
+          <strong>📊 Editor's Note:</strong> This article is powered by the ET AI Concierge's real-time news feed. The Contextual Cross-Sell Agent is actively analyzing your reading engagement. Once you've spent 31 seconds here, a personalized ET service recommendation will appear in the chatbot.
         </p>
-        <div className="h-40 bg-gradient-to-b from-transparent to-gray-50 rounded-xl flex items-end justify-center pb-6">
-          <p className="text-xs text-gray-400 animate-pulse">↓ Keep scrolling to trigger contextual suggestion...</p>
-        </div>
       </div>
 
       {/* Source link */}
@@ -177,11 +163,12 @@ export default function NewsPage() {
   const [searchQ, setSearchQ] = useState('');
   const [searchInput, setSearchInput] = useState('');
 
-  const fetchNews = async (cat, q = '') => {
+  const fetchNews = async (cat, q = '', forceRefresh = false) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ category: cat });
       if (q) params.set('q', q);
+      if (forceRefresh) params.set('force_refresh', 'true');
       const resp = await fetch(`${API_URL}/api/v1/news/feed?${params}`);
       if (resp.ok) {
         const data = await resp.json();
@@ -214,24 +201,13 @@ export default function NewsPage() {
               {apiSource === 'gnews' ? '🟢 LIVE via GNews' : '📋 Curated Fallback'}
             </div>
           )}
-          <button onClick={() => fetchNews(category, searchQ)} className="p-2 text-gray-500 hover:text-blue-600 transition-colors">
-            <RefreshCw className="w-4 h-4" />
+          <button onClick={() => fetchNews(category, searchQ, true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold rounded-lg text-xs transition-colors border border-blue-200">
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh News
           </button>
         </div>
       </div>
 
-      {/* API Key hint */}
-      {apiSource === 'curated_fallback' && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 flex items-center gap-3">
-          <Globe className="w-4 h-4 text-blue-500 flex-shrink-0" />
-          <div className="text-xs text-blue-700">
-            <strong>To enable LIVE headlines:</strong> Get a free API key at{' '}
-            <a href="https://gnews.io" target="_blank" rel="noreferrer" className="underline font-semibold">gnews.io</a>
-            {' '}and add <code className="bg-blue-100 px-1 rounded">NEWS_API_KEY=your_key</code> to your <code className="bg-blue-100 px-1 rounded">.env</code> file.
-            The contextual agent demo works with the curated articles too ✅
-          </div>
-        </div>
-      )}
+
 
       {/* Search bar */}
       <div className="relative mb-5">
@@ -301,11 +277,11 @@ export default function NewsPage() {
           </div>
           <div className="bg-white rounded-xl p-3 border border-orange-100">
             <div className="text-lg mb-1">2️⃣</div>
-            <strong>Read for 30 seconds</strong> and scroll 25% down. The live status bar shows your progress in real-time.
+            <strong>Read for 31 seconds.</strong> The live status bar shows your progress in real-time.
           </div>
           <div className="bg-white rounded-xl p-3 border border-orange-100">
             <div className="text-lg mb-1">3️⃣</div>
-            <strong>Agent fires!</strong> A personalized ET service suggestion slides in from the bottom-right, matched to the article's financial topic.
+            <strong>Agent fires!</strong> A personalized ET service suggestion slides into the chatbot, matched to the article's financial topic.
           </div>
         </div>
       </div>

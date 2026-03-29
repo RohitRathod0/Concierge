@@ -137,28 +137,7 @@ export default function NotificationBell() {
             )}
           </div>
 
-          {/* 🧪 Test Panel */}
-          <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
-            <div className="flex items-center gap-1 mb-2">
-              <Zap className="w-3 h-3 text-orange-500" />
-              <span className="text-[10px] font-extrabold text-gray-700 uppercase tracking-wide">Test Triggers</span>
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {TRIGGERS.map(t => (
-                <button
-                  key={t.key}
-                  onClick={() => handleSimulate(t.key)}
-                  disabled={!!firing}
-                  className={`text-[10px] font-bold text-white py-1.5 px-2 rounded-lg transition-all ${t.color} hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1`}
-                >
-                  {firing === t.key ? '⏳' : t.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-[9px] text-gray-400 mt-2 text-center">
-              Push needs browser permission. In-app log always works.
-            </p>
-          </div>
+
         </div>
       )}
     </div>

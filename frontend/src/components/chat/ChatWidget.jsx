@@ -64,6 +64,87 @@ export default function ChatWidget() {
     }
   }, [messages, loading]);
 
+  // Listen for Contextual AI Agent pushes from Article Readers
+  useEffect(() => {
+    const handleContextualSuggest = (e) => {
+      const crossSell = e.detail;
+      const contextualId = `ctx_${Date.now()}`;
+
+      // Remove any previous contextual suggestions before adding the new one
+      setMessages((prev) => {
+        const withoutOldCtx = prev.filter(m => m.id == null || !String(m.id).startsWith('ctx_'));
+        return [
+          ...withoutOldCtx,
+          {
+            id: contextualId,
+            sender: 'ai',
+            text: crossSell.hook_message || `📰 Based on the article you're reading, here's the most relevant ET service for you right now:`,
+            time: new Date().toISOString(),
+            is_fallback: false,
+            error_message: null,
+            recommendation: {
+              headline: crossSell.service,
+              subtext: crossSell.reason,
+              cta_text: crossSell.cta || 'Explore',
+              cta_url: crossSell.url || '/et-prime',
+              price: crossSell.price || '',
+              match_score: crossSell.match_score || 95,
+            },
+          },
+        ];
+      });
+      setIsOpen(true);
+    };
+
+    window.addEventListener('et:contextual-suggest', handleContextualSuggest);
+    return () => window.removeEventListener('et:contextual-suggest', handleContextualSuggest);
+  }, []);
+
+  // Listen for Financial Services product clicks → open chatbot with ET benefits pitch
+  useEffect(() => {
+    const handleProductInquiry = (e) => {
+      const { productName, brand, category, benefits, fee, minIncome } = e.detail;
+
+      const benefitLines = (benefits || []).slice(0, 3).map(b => `• ${b}`).join('\n');
+
+      const etBenefits = {
+        'Credit Cards': '✅ Zero commission · Instant digital approval · Pre-check eligibility without CIBIL impact',
+        'Personal Loans': '✅ Compare 20+ lenders in one place · No hidden charges · Instant disbursal offers',
+        'Home Loans': '✅ Free EMI calculator · PMAY check · Dedicated relationship manager · Zero processing fee offers',
+        'Term Insurance': '✅ Direct insurer — no agent commission · Compare claim ratios · Buy 100% online in 10 mins',
+        'Health Insurance': '✅ Cashless at 10,000+ hospitals · OPD cover · No-claim bonus · Day-1 accident cover',
+        'Mutual Funds': '✅ Zero commission direct plans · SIP from ₹500 · Expert fund analysis · Auto-step-up SIP',
+      }[category] || '✅ Zero commission · Expert guidance · 100% digital process';
+
+      const msgText =
+        `👋 Great choice! You clicked on **${productName}** by ${brand}.\n\n` +
+        `Here's why applying through ET is smarter than going directly:\n\n` +
+        `${etBenefits}\n\n` +
+        `**Product highlights:**\n${benefitLines}\n\n` +
+        `Min. income: ${minIncome} | Fee: ${fee}\n\n` +
+        `Ask me anything — eligibility, documents needed, how to apply, or which plan suits you best! 🤝`;
+
+      setMessages((prev) => {
+        const withoutOldInquiry = prev.filter(m => m.id == null || !String(m.id).startsWith('inquiry_'));
+        return [
+          ...withoutOldInquiry,
+          {
+            id: `inquiry_${Date.now()}`,
+            sender: 'ai',
+            text: msgText,
+            time: new Date().toISOString(),
+            is_fallback: false,
+            error_message: null,
+          },
+        ];
+      });
+      setIsOpen(true);
+    };
+
+    window.addEventListener('et:product-inquiry', handleProductInquiry);
+    return () => window.removeEventListener('et:product-inquiry', handleProductInquiry);
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem(WIDGET_STORAGE_KEY, JSON.stringify({
@@ -123,6 +204,8 @@ export default function ChatWidget() {
         sender: 'ai',
         text: res.content || res.response?.text || '',
         time: new Date().toISOString(),
+        is_fallback: res.response?.is_fallback || false,
+        error_message: res.response?.error_message || null,
         recommendation: res.product_recommendation || mapCrossSellToWidgetCard(res.response?.cross_sell),
       };
 
@@ -190,14 +273,17 @@ export default function ChatWidget() {
                 {m.sender === 'sys' ? (
                   <div className="text-xs text-red-500 bg-red-50 px-3 py-1 rounded-md mb-2">{m.text}</div>
                 ) : (
-                  <div
-                    className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm shadow-sm md:text-[15px] leading-relaxed ${
-                      m.sender === 'user'
-                        ? 'bg-slate-900 text-white rounded-tr-sm shadow-md'
-                        : 'bg-white border text-slate-700 rounded-tl-sm border-slate-200'
-                    }`}
-                  >
-                    {m.text}
+                  <div className={`max-w-[88%] ${m.sender === 'user' ? 'items-end' : 'items-start'} flex flex-col`}>
+
+                    <div
+                      className={`rounded-2xl px-4 py-3 text-sm shadow-sm md:text-[15px] leading-relaxed ${
+                        m.sender === 'user'
+                          ? 'bg-slate-900 text-white rounded-tr-sm shadow-md'
+                          : 'bg-white border text-slate-700 rounded-tl-sm border-slate-200'
+                      }`}
+                    >
+                      {m.text}
+                    </div>
                   </div>
                 )}
 

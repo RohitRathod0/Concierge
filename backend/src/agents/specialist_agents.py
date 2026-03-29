@@ -26,6 +26,7 @@ def _llm(temperature: float = 0.3) -> ChatGoogleGenerativeAI:
         model=get_gemini_model_name(),
         google_api_key=get_gemini_api_key(),
         temperature=temperature,
+        max_retries=0,
     )
 
 
@@ -97,22 +98,8 @@ def _run_react_agent(state: ETAgentState, tools: list, system_prompt: str) -> ET
         }
     except Exception as e:
         logger.error(f"Specialist agent failed: {e}", exc_info=True)
-        error_msg = AIMessage(content=f"I ran into a technical issue fetching that data. Please try again. (Error: {type(e).__name__})")
-        return {
-            **state,
-            "messages": [error_msg],
-            "response_ready": True,
-            "execution_trace": {
-                "provider": "gemini",
-                "framework": "langgraph",
-                "mode": "react_tools_error",
-                "model": get_gemini_model_name(),
-                "tools_available": [getattr(tool, "name", str(tool)) for tool in tools],
-                "tools_used": [],
-                "used_tools": False,
-                "error": type(e).__name__,
-            },
-        }
+        # Re-raise so agent_chat.py can trigger the _local_agentic_fallback
+        raise e
 
 
 # ── SERVICES AGENT ─────────────────────────────────────────────────────────────

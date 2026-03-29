@@ -86,6 +86,7 @@ def classify_intent(state: ETAgentState) -> ETAgentState:
             model=get_gemini_model_name(),
             google_api_key=get_gemini_api_key(),
             temperature=0,
+            max_retries=0,
         )
         resp = llm.invoke([
             SystemMessage(content=CLASSIFIER_PROMPT),

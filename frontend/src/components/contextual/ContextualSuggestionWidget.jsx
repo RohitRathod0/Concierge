@@ -1,99 +1,113 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { X, ExternalLink } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
 import useAuthStore from '../../store/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-const EMOJI_MAP = {
-  et_prime: '👑',
-  masterclass: '🎓',
+// Local keyword-based fallback — fires even when backend is down
+const LOCAL_FALLBACKS = {
+  ipo: {
+    service: 'ET IPO Tracker',
+    hook_message: "While you're reading about this IPO, thousands are already tracking it live. 🚀 Don't miss the subscription window or GMP spike — it's the difference between listing gains and listing losses.",
+    reason: "Track every upcoming IPO, live subscriptions, GMP, and get ET's Subscribe/Avoid verdict in real time.",
+    cta: 'Track IPOs on ET', url: '/ipo', price: 'Free to track', match_score: 97,
+  },
+  mutual_funds: {
+    service: 'ET Masterclass',
+    hook_message: "This article is exactly why financial literacy matters. 🎯 Most people read the news but don't know what to DO about it. ET Masterclass changes that — expert courses that turn market insights into real money moves.",
+    reason: 'Expert-led courses on investing, SIPs, tax planning — built for Indian investors.',
+    cta: 'Explore ET Masterclass', url: '/masterclass', price: 'First course FREE', match_score: 90,
+  },
+  markets: {
+    service: 'ET Prime',
+    hook_message: "Feeling the tension with all this market chaos? 📊 While everyone else is guessing, ET Prime subscribers already know what's coming next. Get institutional-grade research right at your fingertips — stay ahead of 90% of retail investors.",
+    reason: "Institutional-grade market research, expert calls, and real-time analysis — before anyone else.",
+    cta: 'Try ET Prime Free for 7 Days', url: '/et-prime', price: 'From ₹99/month', match_score: 95,
+  },
+  tax: {
+    service: 'ET Masterclass',
+    hook_message: "Tax season stress? 📋 Most Indians overpay by ₹30,000+ simply because they don't know the right deductions. ET Masterclass has a dedicated tax-saving module that pays for itself in one filing.",
+    reason: 'Tax planning courses from CAs — maximize deductions, minimize liability.',
+    cta: 'Learn Tax Saving', url: '/masterclass', price: 'First course FREE', match_score: 91,
+  },
+  economy: {
+    service: 'ET Prime',
+    hook_message: "Big macro moves are happening. 🌍 Before the next rate hike or policy change hits your portfolio, be the one who knows first. ET Prime's economic briefings give you the full picture — not just headlines.",
+    reason: "Exclusive economic analysis and policy deep-dives from ET's senior economists.",
+    cta: 'Try ET Prime Free', url: '/et-prime', price: 'From ₹99/month', match_score: 93,
+  },
 };
+
+const DEFAULT_FALLBACK = {
+  service: 'ET Prime',
+  hook_message: "Loving this article? 👑 ET Prime readers get 10X more depth — exclusive interviews, institutional research, and market calls that move before the market moves. The best investors in India read ET Prime every morning.",
+  reason: "India's most trusted financial analysis platform — before anyone else sees it.",
+  cta: 'Try ET Prime Free for 7 Days', url: '/et-prime', price: 'From ₹99/month', match_score: 92,
+};
+
+function getLocalFallback(articleCategory, articleContent) {
+  const cat = (articleCategory || '').toLowerCase();
+  const text = (articleContent || '').toLowerCase();
+  if (cat.includes('ipo') || text.includes('ipo') || text.includes('listing')) return LOCAL_FALLBACKS.ipo;
+  if (cat.includes('mutual') || text.includes('sip') || text.includes('mutual fund')) return LOCAL_FALLBACKS.mutual_funds;
+  if (cat.includes('tax') || text.includes('deduction') || text.includes('80c')) return LOCAL_FALLBACKS.tax;
+  if (cat.includes('economy') || cat.includes('global') || text.includes('rbi') || text.includes('gdp')) return LOCAL_FALLBACKS.economy;
+  if (cat.includes('markets') || text.includes('nifty') || text.includes('sensex')) return LOCAL_FALLBACKS.markets;
+  return DEFAULT_FALLBACK;
+}
 
 export default function ContextualSuggestionWidget({ articleContent = '', articleCategory = '', articleId = '' }) {
   const { token } = useAuthStore();
-  const [suggestion, setSuggestion] = useState(null);
-  const [dismissed, setDismissed] = useState(false);
-  const [visible, setVisible] = useState(false);
   const timeRef = useRef(null);
-  const startTimeRef = useRef(Date.now());
-  const scrollDepthRef = useRef(0);
+  const firedRef = useRef(false); // per-render guard (key resets this)
 
-  // Track scroll depth
   useEffect(() => {
-    const handleScroll = () => {
-      const scrolled = window.scrollY;
-      const docHeight = document.body.scrollHeight - window.innerHeight;
-      scrollDepthRef.current = docHeight > 0 ? Math.round((scrolled / docHeight) * 100) : 0;
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // Trigger suggestion after 30 seconds
-  useEffect(() => {
-    if (!articleContent || dismissed) return;
+    if (!articleContent) return;
+    firedRef.current = false; // reset on new article
 
     timeRef.current = setTimeout(async () => {
-      const timeSpent = Math.round((Date.now() - startTimeRef.current) / 1000);
-      const scrollDepth = scrollDepthRef.current;
+      if (firedRef.current) return;
+      firedRef.current = true;
 
+      let suggestion = null;
+
+      // Try backend first — fail immediately if it doesn't respond
       try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000); // 4s hard timeout
         const resp = await fetch(`${API_URL}/api/v1/contextual/suggest`, {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
             article_id: articleId || 'unknown',
             article_content: articleContent.slice(0, 500),
             article_category: articleCategory,
-            time_spent: timeSpent,
-            scroll_depth: scrollDepth,
-          })
+            time_spent: 31,
+            scroll_depth: 0,
+          }),
         });
+        clearTimeout(timeout);
         if (resp.ok) {
           const data = await resp.json();
-          if (data.suggestion) {
-            setSuggestion(data.suggestion);
-            setTimeout(() => setVisible(true), 100);
-          }
+          if (data.suggestion) suggestion = data.suggestion;
         }
       } catch (e) {
-        console.log('Contextual suggestion unavailable');
+        // Backend unreachable — use local fallback silently
       }
-    }, 30000); // 30 second engagement threshold
+
+      // Always fire with local fallback if backend failed
+      if (!suggestion) {
+        suggestion = getLocalFallback(articleCategory, articleContent);
+      }
+
+      window.dispatchEvent(new CustomEvent('et:contextual-suggest', { detail: suggestion }));
+    }, 31000);
 
     return () => clearTimeout(timeRef.current);
-  }, [articleContent, dismissed]);
+  }, [articleContent, articleCategory, articleId]);
 
-  if (!suggestion || dismissed) return null;
-
-  return (
-    <div className={`fixed bottom-20 right-4 z-50 transition-all duration-500 ${visible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`}
-      style={{ maxWidth: '320px' }}>
-      <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-base">{suggestion.trigger_emoji || EMOJI_MAP[suggestion.category] || '💡'}</span>
-            <span className="text-white text-xs font-bold">Related to what you're reading</span>
-          </div>
-          <button onClick={() => { setDismissed(true); setVisible(false); }} className="text-white/70 hover:text-white">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-4">
-          <h4 className="font-bold text-gray-900 text-sm mb-1">{suggestion.service}</h4>
-          <p className="text-xs text-gray-500 leading-relaxed mb-3">{suggestion.reason}</p>
-          <button className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white text-xs font-bold py-2 px-4 rounded-lg transition-all shadow-sm">
-            <ExternalLink className="w-3 h-3" />
-            {suggestion.cta}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }

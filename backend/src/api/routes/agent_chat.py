@@ -267,6 +267,8 @@ def send_agent_message(
             "execution_ms": t_ms,
             "response_source": execution_trace.get("provider"),
             "tools_used": execution_trace.get("tools_used", []),
+            "is_fallback": execution_trace.get("mode") in ["fallback_after_langgraph_error", "fatal_error"],
+            "error_message": "Agent connection error. Displaying backup response." if execution_trace.get("mode") in ["fallback_after_langgraph_error", "fatal_error"] else None,
         },
         "agent_trace": {
             "mode": "langgraph_v4",

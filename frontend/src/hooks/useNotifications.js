@@ -48,7 +48,36 @@ export function useNotifications() {
       const resp = await fetch(`${API_URL}/api/v1/notifications/history?limit=20`);
       if (resp.ok) {
         const data = await resp.json();
-        const notifs = data.notifications || [];
+        let notifs = data.notifications || [];
+
+        // Inject dynamic mock notifications if history is empty
+        if (notifs.length === 0) {
+          const now = Date.now();
+          notifs = [
+            {
+              id: 'mock-1',
+              title: '🚨 Zomato Q3 Results are OUT',
+              body: 'Zomato posts ₹138 crore PAT in Q3. Revenue from operations up 69% YoY. View analysis.',
+              sent_at: new Date(now - 1 * 60 * 60 * 1000).toISOString(),
+              is_read: false,
+            },
+            {
+              id: 'mock-2',
+              title: '⭐ Mutual Fund Portfolio Review',
+              body: 'Your SIP in Parag Parikh Flexi Cap is up 18% this year. Here is your mid-year review.',
+              sent_at: new Date(now - 6 * 60 * 60 * 1000).toISOString(),
+              is_read: false,
+            },
+            {
+              id: 'mock-3',
+              title: '🎓 Pick up where you left off',
+              body: 'You paused "Derivatives Trading for Beginners" midway. You are 2 modules away from completing it.',
+              sent_at: new Date(now - 12 * 60 * 60 * 1000).toISOString(),
+              is_read: true,
+            }
+          ];
+        }
+
         setNotifications(notifs);
         setUnreadCount(notifs.filter(n => !n.is_read).length);
       }

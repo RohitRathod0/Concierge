@@ -53,6 +53,8 @@ export const useChatStore = create((set, get) => ({
         cross_sell: crossSell,
         intent: responseData.intent,
         profile_used: responseData.profile_used,
+        is_fallback: responseData.is_fallback,
+        error_message: responseData.error_message,
         timestamp: new Date().toISOString(),
       };
 

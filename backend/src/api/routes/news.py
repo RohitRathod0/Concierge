@@ -9,6 +9,7 @@ so the contextual agent demo always works.
 import os
 import httpx
 import logging
+import time
 from fastapi import APIRouter, Query
 from typing import Optional
 
@@ -17,6 +18,9 @@ logger = logging.getLogger(__name__)
 
 NEWS_API_KEY = os.getenv("NEWS_API_KEY", "")
 GNEWS_BASE = "https://gnews.io/api/v4"
+
+_NEWS_CACHE = {}
+CACHE_TTL_SECONDS = 6 * 3600  # 6 hours
 
 # Category → query mapping for financial news
 CATEGORY_QUERIES = {
@@ -142,11 +146,18 @@ async def fetch_from_gnews(query: str, max_articles: int = 6) -> list:
 @router.get("/feed")
 async def get_news_feed(
     category: Optional[str] = Query(default="markets"),
-    q: Optional[str] = Query(default=None)
+    q: Optional[str] = Query(default=None),
+    force_refresh: bool = Query(default=False),
 ):
-    """Get financial news feed. Uses GNews API if key is set, else curated fallback."""
+    """Get financial news feed. Uses GNews API with 6-hour cache."""
     query = q or CATEGORY_QUERIES.get(category, "india stock market finance")
     
+    current_time = time.time()
+    if not force_refresh and query in _NEWS_CACHE:
+        cached_data, timestamp = _NEWS_CACHE[query]
+        if current_time - timestamp < CACHE_TTL_SECONDS:
+            return cached_data
+            
     articles = await fetch_from_gnews(query, max_articles=9)
     
     if not articles:
@@ -156,13 +167,17 @@ async def get_news_feed(
         if not articles:
             articles = FALLBACK_ARTICLES
     
-    return {
+    response_data = {
         "articles": articles,
         "source": "gnews" if NEWS_API_KEY else "curated_fallback",
         "query": query,
         "total": len(articles),
         "api_key_configured": bool(NEWS_API_KEY),
     }
+    
+    _NEWS_CACHE[query] = (response_data, current_time)
+    
+    return response_data
 
 
 @router.get("/categories")
